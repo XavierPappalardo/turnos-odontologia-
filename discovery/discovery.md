@@ -193,3 +193,55 @@ Lectura: el top capability lo comparten DentalSoft (mejor ajuste local) y Dental
 **5 competidores prioritarios para demo**: 1) DentalSoft (mejor ajuste local integral); 2) Dentalink (benchmark regional de plataforma + IA); 3) ClinIA (único con PUCO/AFIP/ReNaPDiS — validar profundidad real); 4) Doctocliq (plan gratis, laboratorio, Soyla IA); 5) AgendaPro (marketplace y retención; medir costo real con WhatsApp y sin odontograma).
 **3 productos de referencia para UX**: Fresha (flujo de reserva, lista de espera, depósitos anti-ausencia, pricing localizado); Bewe (IA conversacional que opera el negocio 24/7); tab32 (clínica cloud, comparativas transparentes, IA que ahorra documentación).
 **MVP sugerido**: *Imprescindibles* — agenda multi-profesional/por sillón con anti-solapamiento; reserva online 24/7; confirmación/cancelación/reprogramación por WhatsApp; recordatorios automáticos; HC + odontograma FDI; presupuestos y planes con seguimiento; caja multimedio + Mercado Pago + cierre diario + deudas; OS argentinas con cobertura aplicada y liquidación; comisiones por profesional; roles/permisos; reportes de ocupación/facturación/ausentismo; precios públicos en ARS. *Diferenciadores* — IA de WhatsApp que agenda; portal del paciente; recuperación de inactivos y cobranza automática; reseñas Google automáticas; demo instantánea + migración desde Excel. *Etapas posteriores* — AFIP/PUCO/ReNaPDiS; periodontograma y ortodoncia avanzada; inventario/laboratorio; multi-sucursal; API pública; app móvil; white label.
+
+---
+
+## 7. Verificación de fuentes — comprobación propia (2026-10-06)
+
+### 7.1 Metodología
+El 6 de octubre de 2026 se comprobaron manualmente cinco fuentes citadas en el informe —una de cada tipo exigido: sitio oficial, página de funcionalidades, términos legales, página de precios y marketplace de reseñas—.
+Para cada una se contrastó lo afirmado en `discovery/sources/` con lo visible en la URL a la fecha de consulta, distinguiendo entre:
+- **Funcionalidad comprobada**: visible en el producto, la documentación o los precios.
+- **Afirmación comercial**: declarada sin evidencia técnica o metodológica.
+- **No evidenciado**: todo dato sin respaldo comprobable.
+
+### 7.2 Fuente 1 — Sitio oficial
+**URL:** https://dentalsoft.com.ar/ — consulta 2026-10-06
+**Lo que afirmaba el informe:** agenda semanal/diaria/mensual con drag & drop y detección de solapamiento, odontograma de 18 estados FDI, liquidaciones de obras sociales y comisiones, caja con Mercado Pago, turnos online en 4 pasos, planes ARS 0 / 30.000 / 60.000 y base de 300+ clínicas.
+**Hallazgo:** confirmado. La landing exhibe agenda, odontograma, liquidaciones con vista previa y PDF, caja, turnos online, chatbot, planes y tres testimonios nominales. Las métricas +35% de ocupación, 8 h/semana ahorradas y -82% de ausencias figuran como banners sin metodología publicada.
+**Decisión:** Continuar con ajuste de etiqueta. Funcionalidades como comprobadas; las tres cifras quedan como afirmación comercial.
+
+### 7.3 Fuente 2 — Funcionalidades
+**URL:** https://dentalsoft.com.ar/funcionalidades — consulta 2026-10-06
+**Lo que afirmaba el informe:** cobertura integral de agenda, historia clínica, ortodoncia, recordatorios, caja, OS, web y asistente virtual; periodontograma no evidenciado.
+**Hallazgo:** confirmado. El índice enumera agenda, ficha, odontograma, ortodoncia, estudios y escaneos 3D, documentación, presupuestos, caja, liquidaciones, inventario, roles, portal del paciente, web y chatbot. No existe mención al periodontograma.
+**Decisión:** Continuar. Se ratifica `Periodontograma: No evidenciado` y se confirma `Portal del paciente: comprobado (plan Pro)`.
+
+### 7.4 Fuente 3 — Términos legales
+**URL:** https://dentalsoft.com.ar/terminos — consulta 2026-10-06
+**Lo que afirmaba el informe:** existencia de páginas legales; seguridad declarada solo como "nube segura"; cifrado, backup y adecuación a Ley 26.529, Ley 25.326 e HCE no evidenciados.
+**Hallazgo:** confirmado. El documento (actualizado mayo 2026) regula SaaS por suscripción, propiedad de los datos a favor de la clínica, exportación dentro de los 30 días posteriores a la baja y disponibilidad del 99%. No contiene previsiones sobre cifrado, respaldo ni normativa sanitaria argentina.
+**Decisión:** Continuar. La calificación de seguridad S=2 en la matriz queda fundamentada.
+
+### 7.5 Fuente 4 — Página de precios
+**URL:** https://www.fresha.com/es/pricing — consulta 2026-10-06
+**Lo que afirmaba el informe:** plan Independiente ARS 8.000/mes, Team ARS 5.300 por miembro, trial 7 días, 20 mensajes gratis y luego WhatsApp ARS 180–375, email marketing ARS 63,30, certificaciones HIPAA/ISO 27001/GDPR y 120.000 negocios; sin odontograma ni localización argentina.
+**Hallazgo:** confirmado. Se precisa que los 20 mensajes gratuitos son combinados (SMS + WhatsApp). Add-ons verificados: fidelidad ARS 21.500, reseñas Google ARS 6.500, web inteligente ARS 15.500.
+**Decisión:** Ajustar redacción a `20 notificaciones SMS+WA gratis combinadas`. No altera puntaje.
+
+### 7.6 Fuente 5 — Marketplace de reseñas
+**URL:** https://www.capterra.com.ar/software/218709/agendapro — consulta 2026-10-06
+**Lo que afirmaba el informe:** calificación 4,8/5 con 158 reseñas; precios ARS 13.900–314.900 con WhatsApp +$7.900 vía fuente secundaria; solo prueba gratuita sin plan permanente.
+**Hallazgo:** acceso por navegador logrado. Se confirma prueba gratuita de 7 días con exigencia de método de pago para activarla. Calificación y volumen coinciden. Precios ARS no figuran en detalle en la ficha, se mantienen vía fuente secundaria.
+**Decisión:** Ajustar. Prueba de 7 días con método de pago pasa de afirmación comercial a funcionalidad comprobada. Precios ARS quedan como verificados por tercero.
+
+### 7.7 Conclusión
+Las 5 fuentes fueron comprobadas manualmente el 2026-10-06, validando lo relevado. Dos ajustes de precisión: Fresha (20 mensajes combinados SMS+WhatsApp) y AgendaPro/Capterra (trial 7 días con método de pago a comprobado). Precios AR de AgendaPro se conservan como verificados por terceros. Ninguna corrección altera el puntaje de la matriz ni el MVP recomendado.
+
+## 8. Referencias
+- https://dentalsoft.com.ar/ — 2026-10-06
+- https://dentalsoft.com.ar/funcionalidades — 2026-10-06
+- https://dentalsoft.com.ar/terminos — 2026-10-06
+- https://www.fresha.com/es/pricing — 2026-10-06
+- https://www.capterra.com.ar/software/218709/agendapro — 2026-10-06 (+ https://turnoapp.com.ar/blog/alternativa-a-agendapro)
+- Resto de fuentes en `discovery/sources/` — 2026-10-06

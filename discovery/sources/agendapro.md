@@ -45,7 +45,7 @@ SaaS en la nube + app para clientes (reserva) y marketplace propio. Sin instalac
 
 ## Modelo comercial
 - Precios públicos en ARS con IVA (verificados por tercero el 2026-09-19 sobre la página oficial): Individual $13.900/mes (1 profesional), Básico $33.900, Premium $44.900, Pro $314.900 (estos tres con selector de 2–20 profesionales); WhatsApp desde +$7.900/mes; pago anual con 2 meses bonificados; promo "3 primeros meses $990/mes" etiquetada como MX (confirmar para AR).
-- Solo prueba gratuita (sin plan gratuito permanente). Referencia internacional: desde USD 9–19/mes según país/fuente (Capterra: desde USD 19/usuario/mes). Moneda: ARS en Argentina.
+- Prueba gratuita de 7 días con exigencia de método de pago para activarla — comprobado por verificación propia en navegador en https://www.capterra.com.ar/software/218709/agendapro el 2026-10-06 (sin plan gratuito permanente). Referencia internacional: desde USD 9–19/mes según país/fuente (Capterra: desde USD 19/usuario/mes). Moneda: ARS en Argentina.
 
 ## Fortalezas / limitaciones / diferenciales
 - Fortalezas: marca instalada en LatAm (+30.000 negocios, +80.000 profesionales según web); marketplace que genera demanda; precios públicos en pesos; 4.8/5 en Capterra (158 reseñas).
