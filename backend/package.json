@@ -1,0 +1,24 @@
+{
+  "name": "turnos-odontologia-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MVP turnos odontologia - backend (C-04 agenda anti-solapamiento)",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.7.4",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^6.3.4",
+    "typescript": "^5.6.2",
+    "vitest": "^3.2.7"
+  }
+}
