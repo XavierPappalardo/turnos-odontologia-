@@ -8,26 +8,26 @@ See `_shared/skill-resolver.md` for the full resolution protocol.
 
 | Trigger | Skill | Path |
 |---------|-------|------|
-| Crear servidores Node.js, REST APIs, GraphQL backends o microservicios; middleware, error handling, auth, integración de BD | nodejs-backend-patterns | `C:\Users\Admin\.agents\skills\nodejs-backend-patterns\SKILL.md` |
-| Escribir tests, mocks, coverage, filtering o fixtures con Vitest (Jest-compatible, Vite-native) | vitest | `C:\Users\Admin\.agents\skills\vitest\SKILL.md` |
-| El código toca datos de pacientes/clinicianos, se implementan controles de acceso HIPAA/GDPR, o se audita el sistema por exposición de datos | healthcare-phi-compliance | `C:\Users\Admin\.agents\skills\healthcare-phi-compliance\SKILL.md` |
-| Implementar lógica de tipos compleja, crear utilidades de tipos reutilizables, o garantizar type safety en TypeScript | typescript-advanced-types | `C:\Users\Admin\.agents\skills\typescript-advanced-types\SKILL.md` |
-| "openspec propose" / "opsx propose" — describir qué construir y obtener proposal + specs + design + tasks completos | openspec-propose | `C:\Users\Admin\Documents\facu 3\metodología\SWWSW\turnos-odontologia-\.opencode\skills\openspec-propose\SKILL.md` |
-| "openspec apply" / "opsx apply" / "openspec implement" — empezar/continuar implementación y trabajar tasks | openspec-apply-change | `C:\Users\Admin\Documents\facu 3\metodología\SWWSW\turnos-odontologia-\.opencode\skills\openspec-apply-change\SKILL.md` |
-| "openspec archive" / "opsx archive" — finalizar y archivar un change completado | openspec-archive-change | `C:\Users\Admin\Documents\facu 3\metodología\SWWSW\turnos-odontologia-\.opencode\skills\openspec-archive-change\SKILL.md` |
-| "openspec explore" / "opsx explore" — pensar en ideas/problemas/requisitos antes o durante un change | openspec-explore | `C:\Users\Admin\Documents\facu 3\metodología\SWWSW\turnos-odontologia-\.opencode\skills\openspec-explore\SKILL.md` |
-| "openspec sync" / "opsx sync" — sincronizar delta specs a main specs sin archivar el change | openspec-sync-specs | `C:\Users\Admin\Documents\facu 3\metodología\SWWSW\turnos-odontologia-\.opencode\skills\openspec-sync-specs\SKILL.md` |
-| "openspec update change" / "opsx update" — revisar los artifacts de planificación de un change (nunca edita código) | openspec-update-change | `C:\Users\Admin\Documents\facu 3\metodología\SWWSW\turnos-odontologia-\.opencode\skills\openspec-update-change\SKILL.md` |
-| /active-orchestrator:init, :kb, :rules, :discovery, :openspec, :devops, :find-skill — arrancar un proyecto nuevo con el flujo de fundación SDD/OpenSpec | active-orchestrator | `C:\Users\Admin\.config\opencode\skills\active-orchestrator\SKILL.md` |
-| Cuando el usuario pide crear/generar/actualizar AGENTS.md o CLAUDE.md, "armar las reglas del proyecto", "instrucciones para los agentes", "generar claude.md", o tras correr kb-creator + roadmap-generator | agents-md-generator | `C:\Users\Admin\.config\opencode\skills\agent-instruction\SKILL.md` |
-| Cuando jr-orchestrator despache la fase discovery del flujo de fundación, o el usuario quiera investigar el mercado/qué construir antes de tener claridad | discovery-research | `C:\Users\Admin\.config\opencode\skills\discovery-research\SKILL.md` |
-| "how do I do X", "find a skill for X", "is there a skill that can...", interés en extender capacidades instalando skills | find-skills | `C:\Users\Admin\.config\opencode\skills\find-skill\SKILL.md` |
-| Crear/build/generar una knowledge base, documentar proyecto desde .txt/.docx/.pdf, "armar base de conocimiento" / "crear KB" / "documentar proyecto" | kb-creator | `C:\Users\Admin\.config\opencode\skills\kb-creator\SKILL.md` |
-| Crear/build/regenerar/actualizar CHANGES.md, roadmap, mapa de changes, plan de implementación; "armar CHANGES", "armar roadmap", "índice de changes" | roadmap-generator | `C:\Users\Admin\.config\opencode\skills\roadmap-generator\SKILL.md` |
-| Crear una skill desde cero, editar/optimizar una existente, correr evals, benchmark con variance analysis, optimizar la description para mejor triggering | skill-creator | `C:\Users\Admin\.config\opencode\skills\skill-creator\SKILL.md` |
-| Investigar/scrapear un competidor a partir de una URL, o cuando discovery-research la invoque como sub-skill durante Discovery | web-scraper | `C:\Users\Admin\.config\opencode\skills\web-scraper\SKILL.md` |
+| Crear servidores Node.js, REST APIs, GraphQL backends o microservicios; middleware, error handling, auth, integración de BD | nodejs-backend-patterns | `agents/nodejs-backend-patterns/SKILL.md` |
+| Escribir tests, mocks, coverage, filtering o fixtures con Vitest (Jest-compatible, Vite-native) | vitest | `agents/vitest/SKILL.md` |
+| El código toca datos de pacientes/clinicianos, se implementan controles de acceso HIPAA/GDPR, o se audita el sistema por exposición de datos | healthcare-phi-compliance | `agents/healthcare-phi-compliance/SKILL.md` |
+| Implementar lógica de tipos compleja, crear utilidades de tipos reutilizables, o garantizar type safety en TypeScript | typescript-advanced-types | `agents/typescript-advanced-types/SKILL.md` |
+| "openspec propose" / "opsx propose" — describir qué construir y obtener proposal + specs + design + tasks completos | openspec-propose | `agents/openspec-propose/SKILL.md` |
+| "openspec apply" / "opsx apply" / "openspec implement" — empezar/continuar implementación y trabajar tasks | openspec-apply-change | `agents/openspec-apply-change/SKILL.md` |
+| "openspec archive" / "opsx archive" — finalizar y archivar un change completado | openspec-archive-change | `agents/openspec-archive-change/SKILL.md` |
+| "openspec explore" / "opsx explore" — pensar en ideas/problemas/requisitos antes o durante un change | openspec-explore | `agents/openspec-explore/SKILL.md` |
+| "openspec sync" / "opsx sync" — sincronizar delta specs a main specs sin archivar el change | openspec-sync-specs | `agents/openspec-sync-specs/SKILL.md` |
+| "openspec update change" / "opsx update" — revisar los artifacts de planificación de un change (nunca edita código) | openspec-update-change | `agents/openspec-update-change/SKILL.md` |
+| /active-orchestrator:init, :kb, :rules, :discovery, :openspec, :devops, :find-skill — arrancar un proyecto nuevo con el flujo de fundación SDD/OpenSpec | active-orchestrator | `agents/active-orchestrator/SKILL.md` |
+| Cuando el usuario pide crear/generar/actualizar AGENTS.md o CLAUDE.md, "armar las reglas del proyecto", "instrucciones para los agentes", "generar claude.md", o tras correr kb-creator + roadmap-generator | agents-md-generator | `agents/agent-instruction/SKILL.md` |
+| Cuando jr-orchestrator despache la fase discovery del flujo de fundación, o el usuario quiera investigar el mercado/qué construir antes de tener claridad | discovery-research | `agents/discovery-research/SKILL.md` |
+| "how do I do X", "find a skill for X", "is there a skill that can...", interés en extender capacidades instalando skills | find-skills | `agents/find-skills/SKILL.md` |
+| Crear/build/generar una knowledge base, documentar proyecto desde .txt/.docx/.pdf, "armar base de conocimiento" / "crear KB" / "documentar proyecto" | kb-creator | `agents/kb-creator/SKILL.md` |
+| Crear/build/regenerar/actualizar CHANGES.md, roadmap, mapa de changes, plan de implementación; "armar CHANGES", "armar roadmap", "índice de changes" | roadmap-generator | `agents/roadmap-generator/SKILL.md` |
+| Crear una skill desde cero, editar/optimizar una existente, correr evals, benchmark con variance analysis, optimizar la description para mejor triggering | skill-creator | `agents/skill-creator/SKILL.md` |
+| Investigar/scrapear un competidor a partir de una URL, o cuando discovery-research la invoque como sub-skill durante Discovery | web-scraper | `agents/web-scraper/SKILL.md` |
 
-> Dedupe: los 6 skills openspec-* existen también en `C:\Users\Admin\.agents\skills\` — se conserva la versión **project-level** (`.opencode\skills\`). `skill-registry` se omite (es esta skill). `agent-instruction` (dir) tiene frontmatter `name: agents-md-generator`; `find-skill` (dir) tiene `name: find-skills`.
+> Layout: todas las rutas son relativas a la raíz del proyecto (`agents/<skill>/SKILL.md`) — sin usuarios ni máquinas hardcodeadas. `agents/` contiene hoy las 6 skills openspec-* (copiadas de `.opencode/skills/`, que sigue siendo su fuente gestionada). Pendientes de colocar en `agents/`: nodejs-backend-patterns, vitest, healthcare-phi-compliance, typescript-advanced-types, active-orchestrator, agent-instruction (dir; frontmatter `name: agents-md-generator`), discovery-research, find-skills (dir), kb-creator, roadmap-generator, skill-creator, skill-registry (es esta skill) y web-scraper. Hasta que una skill pendiente exista en `agents/`, su fila del registry no resuelve — no inventar rutas.
 
 ## Compact Rules
 
