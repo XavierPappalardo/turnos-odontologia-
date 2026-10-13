@@ -14,7 +14,7 @@
 | Testing | Vitest (escenarios `Dado/Cuando/Entonces`) | — |
 | Auth | JWT + refresh cookie HttpOnly (secure, samesite=lax) | — |
 | Moneda | ARS en enteros centavos (`monto_centavos INTEGER`) | — |
-| Frontend | **No definido aún** — scaffolding futuro (decisión explícita pendiente) | — |
+| Frontend | React + Vite + TypeScript | — |
 | Integraciones | WhatsApp API oficial, Mercado Pago (estructuras sin credenciales reales) | — |
 
 Detalle completo: [knowledge-base/08-arquitectura.md](knowledge-base/08-arquitectura.md) y [knowledge-base/09-decisiones.md](knowledge-base/09-decisiones.md)
@@ -48,7 +48,7 @@ Fuente de verdad: `.atl/skill-registry.md` (generado por `skill-registry`).
 |--------|-----|------------------|
 | **Backend Core** | Dominios clínicos + caja (agenda, turnos, historia clínica, pagos) | `nodejs-backend-patterns`, `vitest`, `typescript-advanced-types`, `healthcare-phi-compliance` |
 | **Backend Aux** | Integraciones, notificaciones, workers | `nodejs-backend-patterns`, `vitest` |
-| **Frontend** | UI (cuando se defina el stack) | `typescript-advanced-types` |
+| **Frontend** | UI (React + Vite + TypeScript) | `typescript-advanced-types` |
 | **Orquestación** | OPSX / OpenSpec | `openspec-propose`, `openspec-apply-change`, `openspec-archive-change`, `openspec-explore`, `openspec-sync-specs`, `openspec-update-change` |
 | **Fundación / Proceso** | KB, roadmap, skills, discovery | `kb-creator`, `roadmap-generator`, `agents-md-generator`, `discovery-research`, `web-scraper`, `find-skills` |
 

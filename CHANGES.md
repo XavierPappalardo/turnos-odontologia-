@@ -126,7 +126,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ## FASE 0 — Cimientos
 
 ### [C-01] `foundation-setup`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/`)
 - **Scope**: Scaffolding completo del proyecto + infraestructura base (alineado a arquitectura MVP)
   - Estructura de directorios: `backend/`, `frontend/`, `docs/`, `knowledge-base/`, `discovery/` según `08-arquitectura.md` §Arquitectura general
   - `backend/`: app mínima con health check `/api/health`, migraciones iniciales, `shared/` con settings, logger, db, exceptions
@@ -191,7 +191,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ## FASE 2 — Agenda, Turnos y Solapamientos (MVP Core)
 
 ### [C-04] `agenda-turnos-overlaps`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/`)
 - **Scope**: **MANDATORIO** — Crear turno evitando solapamientos por profesional AND por sillón/box, con reglas verificables
   - Lógica de anti-solapamiento (RN-01, RN-02): consulta de intersección `[inicio, fin)` en estados activos (`reservado`, `confirmado`, `presente`)
   - Validación vs Bloqueos aplicables (profesional/sillón, NULL=global) — RN-04

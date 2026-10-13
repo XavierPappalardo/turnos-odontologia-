@@ -14,9 +14,29 @@ export type EjeConflicto = 'profesional' | 'sillon' | 'bloqueo';
 
 export type CrearTurnoErrorCode = 'validacion' | 'forbidden' | 'conflicto';
 
-export class CrearTurnoError extends Error {
-  readonly status: 400 | 403 | 409;
-  readonly code: CrearTurnoErrorCode;
+/**
+ * Error base tipado del cimiento (design D5). El middleware centralizado lo
+ * traduce a JSON con su `status`; nunca expone stack ni detalles internos.
+ */
+export class AppError extends Error {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(args: { status: number; code: string; message: string }) {
+    super(args.message);
+    this.name = 'AppError';
+    this.status = args.status;
+    this.code = args.code;
+  }
+
+  toBody(): Record<string, unknown> {
+    return { error: this.code };
+  }
+}
+
+export class CrearTurnoError extends AppError {
+  declare readonly status: 400 | 403 | 409;
+  declare readonly code: CrearTurnoErrorCode;
   readonly eje?: EjeConflicto | undefined;
   /** Solo ids opacos internos (UUID). Sin PHI. */
   readonly ids?:
@@ -40,10 +60,8 @@ export class CrearTurnoError extends Error {
       pacienteId?: PacienteId;
     };
   }) {
-    super(args.message);
+    super({ status: args.status, code: args.code, message: args.message });
     this.name = 'CrearTurnoError';
-    this.status = args.status;
-    this.code = args.code;
     this.eje = args.eje;
     this.ids = args.ids;
   }

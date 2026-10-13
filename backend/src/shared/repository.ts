@@ -3,32 +3,25 @@
  * Motor: node:sqlite (DatabaseSync). Sin ORMs (R7).
  */
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
-import {
-  MIGRATION_001_CORE,
-  MIGRATION_002_AUTH,
-  MIGRATION_003_TURNO_BLOQUEO,
-} from './migrations.js';
+import { applyMigration, runMigrations } from './migrations.js';
 
 export type { DatabaseSync };
+export { runMigrations, MIGRATIONS } from './migrations.js';
 
 export function nowIsoUtc(): string {
   return new Date().toISOString();
 }
 
-/** Abre una BD nueva (fichero o ':memory:') y aplica 001→003. */
+/** Abre una BD nueva (fichero o ':memory:') y aplica 001→003 vía el runner. */
 export function openDatabase(path = ':memory:'): DatabaseSync {
   const db = new DatabaseSync(path);
-  db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA foreign_keys = ON;');
-  db.exec(MIGRATION_001_CORE);
-  db.exec(MIGRATION_002_AUTH);
-  db.exec(MIGRATION_003_TURNO_BLOQUEO);
+  runMigrations(db);
   return db;
 }
 
-/** Aplica solo 003 sobre una BD existente (verificación de tarea 2.1). */
+/** Aplica solo 003 sobre una BD existente (delega en el runner). */
 export function applyMigration003(db: DatabaseSync): void {
-  db.exec(MIGRATION_003_TURNO_BLOQUEO);
+  applyMigration(db, '003');
 }
 
 export interface AuditRow {

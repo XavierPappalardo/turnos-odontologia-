@@ -4,11 +4,15 @@
   "private": true,
   "description": "MVP turnos odontologia - backend (C-04 agenda anti-solapamiento)",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
-    "dev": "tsc --watch",
+    "dev": "tsc -p tsconfig.json && node --env-file-if-exists=.env --watch dist/src/index.js",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "express": "^4.21.2"

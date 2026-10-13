@@ -1,10 +1,12 @@
 /**
  * Migraciones SQLite gestionadas (R7/R8).
- * 001 = core mínimo (C-02 [Supuesto] equivalente dentro del alcance de C-04).
+ * 001 = core mínimo (base formalizada por C-01; C-02 la completa).
  * 002 = auth mínima (C-03 [Supuesto] equivalente: users + roles).
  * 003 = turno + bloqueo del change (C-04).
  * Montos: no hay montos en este change (R2/R5 N/A, sin floats).
  */
+import type { DatabaseSync } from 'node:sqlite';
+
 export const MIGRATION_001_CORE = `
 CREATE TABLE IF NOT EXISTS profesional (
   id TEXT PRIMARY KEY,
@@ -89,3 +91,85 @@ CREATE INDEX IF NOT EXISTS idx_turno_sillon_intervalo
 CREATE INDEX IF NOT EXISTS idx_bloqueo_aplicabilidad
   ON bloqueo(profesional_id, sillon_id, inicio, fin);
 `;
+
+/** Una migración versionada: id ascendente + SQL idempotente (`IF NOT EXISTS`). */
+export interface Migration {
+  readonly id: string;
+  readonly sql: string;
+}
+
+/**
+ * Registro ordenado de migraciones (design D4). La migración base 001 crea las
+ * tablas núcleo. El orden del array ES el orden de aplicación.
+ */
+export const MIGRATIONS: readonly Migration[] = [
+  { id: '001', sql: MIGRATION_001_CORE },
+  { id: '002', sql: MIGRATION_002_AUTH },
+  { id: '003', sql: MIGRATION_003_TURNO_BLOQUEO },
+];
+
+/** Tabla de control de migraciones aplicadas (idempotencia). */
+export const MIGRATIONS_CONTROL_TABLE = `
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  id TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+`;
+
+function appliedMigrationIds(db: DatabaseSync): Set<string> {
+  const rows = db
+    .prepare('SELECT id FROM schema_migrations')
+    .all() as { id: string }[];
+  return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * Aplica una migración puntual por id (delegación usada por `applyMigration003`).
+ * Idempotente por `IF NOT EXISTS`; no toca `schema_migrations` (uso de bajo nivel).
+ */
+export function applyMigration(db: DatabaseSync, id: string): void {
+  const migration = MIGRATIONS.find((m) => m.id === id);
+  if (migration === undefined) {
+    throw new Error(`migración desconocida: ${id}`);
+  }
+  db.exec(migration.sql);
+}
+
+/**
+ * Runner de migraciones (design D4): habilita `foreign_keys` + `journal_mode=WAL`,
+ * crea la tabla de control `schema_migrations` y aplica, en orden ascendente y de
+ * forma idempotente dentro de una transacción, las migraciones pendientes.
+ * Devuelve los ids aplicados en esta corrida (vacío si no había pendientes).
+ */
+export function runMigrations(db: DatabaseSync): readonly string[] {
+  db.exec('PRAGMA foreign_keys = ON;');
+  db.exec('PRAGMA journal_mode = WAL;');
+  db.exec(MIGRATIONS_CONTROL_TABLE);
+
+  const applied = appliedMigrationIds(db);
+  const insert = db.prepare(
+    'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)',
+  );
+  const newlyApplied: string[] = [];
+
+  for (const migration of MIGRATIONS) {
+    if (applied.has(migration.id)) continue;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.exec(migration.sql);
+      insert.run(migration.id, new Date().toISOString());
+      db.exec('COMMIT');
+    } catch (err) {
+      try {
+        db.exec('ROLLBACK');
+      } catch {
+        // ya en rollback: conservar error original
+      }
+      throw err;
+    }
+    newlyApplied.push(migration.id);
+  }
+
+  return newlyApplied;
+}
+

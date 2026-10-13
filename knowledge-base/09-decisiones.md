@@ -52,3 +52,10 @@
 - **Justificación trazable**: el MVP sugerido incluye "precios públicos en ARS" como imprescindible y el pricing transparente figura como diferenciador frente a la cotización opaca (discovery.md Anexo D, línea ~195; Anexo C).
 - **Competidor que la respalda**: DentalSoft ARS 0 / 30.000 / 60.000, Dentaly ARS 35.000/mes, DenPro ARS 19.900 / 29.900 (https://dentalsoft.com.ar/ — 2026-10-06; https://dentaly.com.ar — 2026-10-06; https://denpro.ar — 2026-10-06). Contrapeso opaco: Dentalink y Ninsaúde por cotización (https://www.softwaredentalink.com/ — 2026-10-06; https://ninsaude.com — 2026-10-06).
 - **Qué se excluye**: cotización a pedido como única vía y precios solo en USD/EUR sin localización.
+
+## D8. Frontend React + Vite + TypeScript (extensión explícita del stack)
+
+- **Decisión**: el frontend del MVP se construye con **React + Vite + TypeScript**, con Vitest para tests y oxlint para lint. Aprobado de forma explícita en el change `C-01 foundation-setup`.
+- **Justificación trazable**: R7 fija el backend como stack inamovible (TypeScript + Node/Express + SQLite + Vitest) y exige una decisión explícita para incorporar tecnologías nuevas; esta decisión la provee y no lo contradice (el backend permanece inamovible). Unifica el lenguaje (TypeScript) en todo el repo y habilita el scaffolding `frontend/` creado en `C-01` (`proposal.md` §What Changes; `design.md` D8).
+- **Competidor que la respalda**: No evidenciado — los competidores (DentalSoft, Dentaly, DentalSaaS) no publican su stack de frontend (2026-10-06).
+- **Qué se excluye**: Next.js, Vue y Svelte (descartados por instrucción explícita del usuario); cualquier ORM o framework adicional en backend (R7).
