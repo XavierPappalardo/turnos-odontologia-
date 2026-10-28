@@ -12,7 +12,7 @@ export function nowIsoUtc(): string {
   return new Date().toISOString();
 }
 
-/** Abre una BD nueva (fichero o ':memory:') y aplica 001→003 vía el runner. */
+/** Abre una BD nueva (fichero o ':memory:') y aplica 001→005 vía el runner. */
 export function openDatabase(path = ':memory:'): DatabaseSync {
   const db = new DatabaseSync(path);
   runMigrations(db);
@@ -24,15 +24,22 @@ export function applyMigration003(db: DatabaseSync): void {
   applyMigration(db, '003');
 }
 
+/** AuditMixin: columnas comunes de auditoría/soft-delete (C-02). */
 export interface AuditRow {
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
-/** AuditMixin: sella created_at/updated_at en inserciones (C-02 [Supuesto]). */
+/** AuditMixin: sella created_at/updated_at en inserciones (C-02). */
 export function auditStamp(): AuditRow {
   const now = nowIsoUtc();
   return { created_at: now, updated_at: now };
+}
+
+/** Sello de soft-delete: `deleted_at` explícito, sin borrar filas. */
+export function softDeleteStamp(): { deleted_at: string } {
+  return { deleted_at: nowIsoUtc() };
 }
 
 /**
@@ -49,6 +56,23 @@ export class BaseRepository<T extends object> {
   }
 
   insert(row: Omit<T, 'created_at' | 'updated_at'> & { id: string }): void {
+    this.insertWithMode('INSERT INTO', row);
+  }
+
+  /**
+   * Inserción idempotente para seeds/fixtures: no falla si la PK/UNIQUE ya existe.
+   * Mantiene el mismo contrato de auditoría que `insert`.
+   */
+  insertOrIgnore(
+    row: Omit<T, 'created_at' | 'updated_at'> & { id: string },
+  ): void {
+    this.insertWithMode('INSERT OR IGNORE INTO', row);
+  }
+
+  private insertWithMode(
+    verb: 'INSERT INTO' | 'INSERT OR IGNORE INTO',
+    row: Omit<T, 'created_at' | 'updated_at'> & { id: string },
+  ): void {
     const stamp = auditStamp();
     const full: Record<string, SQLInputValue> = {
       ...(row as unknown as Record<string, SQLInputValue>),
@@ -57,7 +81,7 @@ export class BaseRepository<T extends object> {
     const cols = Object.keys(full);
     const placeholders = cols.map(() => '?').join(', ');
     const stmt = this.db.prepare(
-      `INSERT INTO ${this.table} (${cols.join(', ')}) VALUES (${placeholders})`,
+      `${verb} ${this.table} (${cols.join(', ')}) VALUES (${placeholders})`,
     );
     stmt.run(...cols.map((c) => full[c] as SQLInputValue));
   }

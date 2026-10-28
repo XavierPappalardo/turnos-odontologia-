@@ -98,6 +98,22 @@ export class TurnoRepository extends BaseRepository<TurnoRow> {
     return stmt.get(sillonId, nuevoFin, nuevoInicio) !== undefined;
   }
 
+  /** Actualiza el estado solo si el turno sigue en `estadoEsperado` (CAS). */
+  actualizarEstado(
+    id: TurnoId,
+    estadoEsperado: TurnoEstado,
+    estadoNuevo: TurnoEstado,
+  ): boolean {
+    const result = this.db
+      .prepare(
+        `UPDATE turno
+            SET estado = ?, updated_at = ?
+          WHERE id = ? AND estado = ?`,
+      )
+      .run(estadoNuevo, new Date().toISOString(), id, estadoEsperado);
+    return result.changes === 1;
+  }
+
   contarActivosEnHueco(
     profesionalId: ProfesionalId,
     sillonId: SillonId,

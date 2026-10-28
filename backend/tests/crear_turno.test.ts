@@ -14,11 +14,38 @@ import { crearTurno } from '../src/agenda/crearTurno.service.js';
 import { TurnoRepository } from '../src/agenda/turno.repository.js';
 import { createApp } from '../src/shared/app.js';
 import { applyMigration003, openDatabase } from '../src/shared/repository.js';
+import { signToken } from '../src/auth/tokens.js';
+import type { AuthConfig } from '../src/auth/types.js';
 import type {
   PacienteId,
   ProfesionalId,
+  Rol,
   SillonId,
 } from '../src/shared/types.js';
+
+const AUTH: AuthConfig = {
+  jwtSecret: 'test-secret-con-mas-de-32-caracteres-c04',
+  accessTokenTtlSeconds: 900,
+  refreshTokenTtlSeconds: 604_800,
+  loginRateLimitMax: 50,
+  loginRateLimitWindowSeconds: 60,
+  cookieSecure: false,
+};
+
+function bearer(roles: readonly Rol[]): string {
+  const token = signToken(
+    {
+      sub: 'user-test-c04',
+      tenantId: 'test',
+      roles,
+      email: 'agenda@example.test',
+      type: 'access',
+      ttlSeconds: 900,
+    },
+    AUTH.jwtSecret,
+  );
+  return `Bearer ${token}`;
+}
 
 // ── Fixtures ficticios (R1/R12) ────────────────────────────────────────────
 const PROF = 'prof-0001';
@@ -264,9 +291,9 @@ describe('Dado BloqueoRepository sobre SQLite real', () => {
 // ── 5.1–5.7 Escenarios de endpoint ──────────────────────────────────────────
 describe('POST /api/turnos', () => {
   it('5.1 Dado profesional y sillón libres Cuando creo turno Entonces 201 reservado', async () => {
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'recepcion')
+      .set('authorization', bearer(['recepcion']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -284,9 +311,9 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T10:30:00.000Z',
     });
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'recepcion')
+      .set('authorization', bearer(['recepcion']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -304,9 +331,9 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T10:30:00.000Z',
     });
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'recepcion')
+      .set('authorization', bearer(['recepcion']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -324,9 +351,9 @@ describe('POST /api/turnos', () => {
       fin: '2026-10-07T10:30:00.000Z',
       estado: 'cancelado',
     });
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'recepcion')
+      .set('authorization', bearer(['recepcion']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -343,9 +370,9 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T12:00:00.000Z',
     });
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'recepcion')
+      .set('authorization', bearer(['recepcion']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -361,9 +388,9 @@ describe('POST /api/turnos', () => {
     const antes = (
       db.prepare(`SELECT COUNT(*) AS n FROM turno`).get() as { n: number }
     ).n;
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'recepcion')
+      .set('authorization', bearer(['recepcion']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -382,9 +409,9 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T10:30:00.000Z',
     });
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'recepcion')
+      .set('authorization', bearer(['recepcion']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -396,9 +423,9 @@ describe('POST /api/turnos', () => {
   });
 
   it('Dado rol sin permiso Cuando creo turno Entonces 403 sin PHI', async () => {
-    const res = await request(createApp(db))
+    const res = await request(createApp(db, AUTH))
       .post('/api/turnos')
-      .set('x-role', 'profesional')
+      .set('authorization', bearer(['profesional']))
       .send({
         profesional_id: PROF,
         sillon_id: SILLA,
@@ -422,9 +449,9 @@ describe('POST /api/turnos', () => {
         logs.push(args.map(String).join(' '));
       });
     try {
-      const res = await request(createApp(db))
+      const res = await request(createApp(db, AUTH))
         .post('/api/turnos')
-        .set('x-role', 'recepcion')
+        .set('authorization', bearer(['recepcion']))
         .send({
           profesional_id: PROF,
           sillon_id: SILLA,
@@ -452,7 +479,7 @@ describe('Dado hueco libre Cuando dos escrituras concurrentes Entonces un 201 + 
     const file = join(dir, 'concurrencia.db');
     const dbFile = openDatabase(file);
     seedBase(dbFile);
-    const app = createApp(dbFile);
+    const app = createApp(dbFile, AUTH);
     try {
       const payload = {
         profesional_id: PROF,
@@ -462,8 +489,8 @@ describe('Dado hueco libre Cuando dos escrituras concurrentes Entonces un 201 + 
         fin: '2026-10-07T10:30:00.000Z',
       };
       const [r1, r2] = await Promise.all([
-        request(app).post('/api/turnos').set('x-role', 'recepcion').send(payload),
-        request(app).post('/api/turnos').set('x-role', 'recepcion').send(payload),
+        request(app).post('/api/turnos').set('authorization', bearer(['recepcion'])).send(payload),
+        request(app).post('/api/turnos').set('authorization', bearer(['recepcion'])).send(payload),
       ]);
       const statuses = [r1.status, r2.status].sort();
       expect(statuses).toEqual([201, 409]);

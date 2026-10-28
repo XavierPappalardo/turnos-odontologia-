@@ -25,7 +25,7 @@ export function startServer(env: NodeJS.ProcessEnv = process.env): RunningServer
   const config = loadConfig(env);
   const logger = createLogger(defaultSink);
   const db = openDatabase(config.databasePath);
-  const app = createApp(db);
+  const app = createApp(db, config);
 
   const httpServer = app.listen(config.port, () => {
     logger.info('server listening', {

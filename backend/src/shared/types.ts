@@ -27,6 +27,10 @@ export type TurnoEstado =
 
 export type TurnoOrigen = 'recepcion' | 'online' | 'whatsapp';
 
+/** Roles del MVP (KB-03). */
+export type Rol = 'recepcion' | 'profesional' | 'administracion';
+export const ROLES: readonly Rol[] = ['recepcion', 'profesional', 'administracion'];
+
 /** Estados que OCUPAN agenda (RN-01/RN-02, design D4). */
 export const ESTADOS_ACTIVOS: readonly TurnoEstado[] = [
   'reservado',

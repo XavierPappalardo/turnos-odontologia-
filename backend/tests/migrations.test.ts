@@ -54,7 +54,7 @@ describe('runMigrations', () => {
     const db = new DatabaseSync(':memory:');
     try {
       const first = runMigrations(db);
-      expect(first).toEqual(['001', '002', '003']);
+      expect(first).toEqual(['001', '002', '003', '004', '005']);
       const before = tableNames(db);
       let second: readonly string[] = ['<sin-correr>'];
       expect(() => {
@@ -68,13 +68,13 @@ describe('runMigrations', () => {
   });
 
   it('Dado runMigrations Cuando registro Entonces ids ordenados ascendente', () => {
-    expect(MIGRATIONS.map((m) => m.id)).toEqual(['001', '002', '003']);
+    expect(MIGRATIONS.map((m) => m.id)).toEqual(['001', '002', '003', '004', '005']);
   });
 
   it('Dado openDatabase Cuando abro Entonces delega en el runner y registra 001→003', () => {
     const db = openDatabase(':memory:');
     try {
-      expect(appliedIds(db)).toEqual(['001', '002', '003']);
+      expect(appliedIds(db)).toEqual(['001', '002', '003', '004', '005']);
     } finally {
       db.close();
     }

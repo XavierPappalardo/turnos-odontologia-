@@ -1,9 +1,11 @@
 /**
  * Migraciones SQLite gestionadas (R7/R8).
  * 001 = core mínimo (base formalizada por C-01; C-02 la completa).
- * 002 = auth mínima (C-03 [Supuesto] equivalente: users + roles).
- * 003 = turno + bloqueo del change (C-04).
- * Montos: no hay montos en este change (R2/R5 N/A, sin floats).
+ * 002 = auth mínima (C-03: usuarios + roles).
+ * 003 = turno + bloqueo (C-04).
+ * 004 = completitud de core-models (C-02): obra social, pagos, auditoría.
+ * 005 = refresh tokens + blacklist/rotación (C-03).
+ * Montos: enteros en centavos (R2/R5), sin floats.
  */
 import type { DatabaseSync } from 'node:sqlite';
 
@@ -92,6 +94,71 @@ CREATE INDEX IF NOT EXISTS idx_bloqueo_aplicabilidad
   ON bloqueo(profesional_id, sillon_id, inicio, fin);
 `;
 
+/**
+ * 004 — completitud de C-02.
+ * Agrega las entidades que faltaban (obra social y pago) y completa la
+ * auditoría (`deleted_at`/`activo`) sin reescribir las migraciones ya emitidas.
+ * Nota: SQLite no permite agregar FKs con ALTER TABLE; `paciente.obra_social_plan_id`
+ * queda como FK lógica validada por la capa de repositorios (R8).
+ */
+export const MIGRATION_004_CORE_COMPLETE = `
+CREATE TABLE IF NOT EXISTS obra_social_plan (
+  id TEXT PRIMARY KEY,
+  obra_social TEXT NOT NULL,
+  plan TEXT NOT NULL,
+  cobertura_pct INTEGER NOT NULL
+    CHECK (cobertura_pct BETWEEN 0 AND 100)
+    CHECK (cobertura_pct = CAST(cobertura_pct AS INTEGER)),
+  activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT,
+  UNIQUE (obra_social, plan)
+);
+CREATE TABLE IF NOT EXISTS pago (
+  id TEXT PRIMARY KEY,
+  turno_id TEXT NOT NULL REFERENCES turno(id),
+  monto_centavos INTEGER NOT NULL
+    CHECK (monto_centavos >= 0)
+    CHECK (monto_centavos = CAST(monto_centavos AS INTEGER)),
+  moneda TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda = 'ARS'),
+  medio TEXT NOT NULL
+    CHECK (medio IN ('efectivo', 'tarjeta', 'transferencia', 'mercadopago', 'obra_social')),
+  estado TEXT NOT NULL DEFAULT 'pendiente'
+    CHECK (estado IN ('pendiente', 'cobrado', 'anulado')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+ALTER TABLE profesional ADD COLUMN deleted_at TEXT;
+ALTER TABLE sillon ADD COLUMN deleted_at TEXT;
+ALTER TABLE paciente ADD COLUMN activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1));
+ALTER TABLE paciente ADD COLUMN deleted_at TEXT;
+ALTER TABLE prestacion ADD COLUMN activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1));
+ALTER TABLE prestacion ADD COLUMN deleted_at TEXT;
+ALTER TABLE turno ADD COLUMN deleted_at TEXT;
+ALTER TABLE bloqueo ADD COLUMN deleted_at TEXT;
+CREATE INDEX IF NOT EXISTS idx_pago_turno ON pago(turno_id);
+CREATE INDEX IF NOT EXISTS idx_paciente_os ON paciente(obra_social_plan_id);
+`;
+
+/** 005 — refresh tokens con rotación y blacklist (C-03). */
+export const MIGRATION_005_AUTH_TOKENS = `
+CREATE TABLE IF NOT EXISTS refresh_token (
+  id TEXT PRIMARY KEY,
+  usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT,
+  replaced_by TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_usuario ON refresh_token(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_vigente ON refresh_token(token_hash, revoked_at, expires_at);
+ALTER TABLE usuario ADD COLUMN deleted_at TEXT;
+`;
+
 /** Una migración versionada: id ascendente + SQL idempotente (`IF NOT EXISTS`). */
 export interface Migration {
   readonly id: string;
@@ -106,6 +173,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '001', sql: MIGRATION_001_CORE },
   { id: '002', sql: MIGRATION_002_AUTH },
   { id: '003', sql: MIGRATION_003_TURNO_BLOQUEO },
+  { id: '004', sql: MIGRATION_004_CORE_COMPLETE },
+  { id: '005', sql: MIGRATION_005_AUTH_TOKENS },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

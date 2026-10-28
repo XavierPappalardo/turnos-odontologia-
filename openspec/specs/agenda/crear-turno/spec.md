@@ -8,7 +8,7 @@ Permite a recepción crear turnos internos sin doble reserva, validando en tiemp
 
 ### Requirement: Crear turno válido interno
 
-El sistema SHALL exponer `POST /api/turnos` (ruta interna autenticada) que crea un turno en estado `reservado` y responde `201` con el turno creado cuando el profesional y el sillón están libres y no hay bloqueo aplicable. Autenticación y roles provistos por C-03 [Supuesto].
+El sistema SHALL exponer `POST /api/turnos` (ruta interna autenticada) que crea un turno en estado `reservado` y responde `201` con el turno creado cuando el profesional y el sillón están libres y no hay bloqueo aplicable. Autenticación y roles provistos por `auth/auth-roles` (C-03, implementado).
 
 #### Scenario: Recepción crea turno con profesional y sillón libres
 
@@ -76,7 +76,7 @@ El sistema SHALL responder `400` cuando `fin <= inicio`, cuando falte un campo o
 
 ### Requirement: Autorización y privacidad en errores
 
-El sistema SHALL responder `403` a roles sin permiso de creación de turnos ([Supuesto] matriz RBAC de C-03: recepción/administración crean; profesional no configura agenda ajena) y SHALL NOT incluir PHI (nombres, DNI, historia clínica, teléfonos) en cuerpos de error, logs ni query params: los errores identifican recursos solo con UUIDs/ids opacos internos más el campo `eje`.
+El sistema SHALL responder `403` a roles sin permiso de creación de turnos (matriz RBAC de C-03: recepción/administración crean; profesional no configura agenda ajena) y SHALL NOT incluir PHI (nombres, DNI, historia clínica, teléfonos) en cuerpos de error, logs ni query params: los errores identifican recursos solo con UUIDs/ids opacos internos más el campo `eje`.
 
 #### Scenario: Rol sin permiso rechazado sin PHI
 
@@ -96,3 +96,27 @@ El sistema SHALL garantizar que dos creaciones concurrentes sobre el mismo profe
 
 - **WHEN** dos solicitudes concurrentes intentan crear un turno para el mismo profesional y sillón en el mismo intervalo
 - **THEN** una recibe `201` y la otra `409`, y persiste un único turno activo en ese hueco
+
+### Requirement: Máquina de estados de Turno
+
+El sistema SHALL exponer `PATCH /api/turnos/:id/estado` (autenticado, solo recepción/administración) y SHALL aceptar únicamente las transiciones de KB-04 §9: `reservado → confirmado`, `reservado → cancelado`, `confirmado → presente`, `confirmado → cancelado`, `confirmado → ausente`, `presente → atendido`. Cualquier otra transición SHALL responder `409` con `{error:"transicion_invalida", desde, hacia}` sin PHI; un estado desconocido SHALL responder `400`; un turno inexistente `404`.
+
+#### Scenario: Cadena válida hasta atendido
+
+- **WHEN** recepción confirma, marca presente y luego atiende un turno `reservado`
+- **THEN** cada `PATCH` responde `200` y el estado persistido avanza `confirmado → presente → atendido`
+
+#### Scenario: Transición inválida rechazada
+
+- **WHEN** se intenta pasar un turno `reservado` directamente a `presente` o `atendido`
+- **THEN** el sistema responde `409` con `transicion_invalida` y el estado no cambia
+
+#### Scenario: Cancelación libera el hueco
+
+- **WHEN** se cancela un turno activo y se intenta crear otro turno en el mismo profesional, sillón e intervalo
+- **THEN** el nuevo turno se crea con `201` porque `cancelado` no bloquea la agenda
+
+#### Scenario: Rol no autorizado no cambia estados
+
+- **WHEN** un usuario con rol `profesional` envía `PATCH /api/turnos/:id/estado`
+- **THEN** el sistema responde `403` y el turno conserva su estado

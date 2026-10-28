@@ -34,6 +34,59 @@ export class AppError extends Error {
   }
 }
 
+/** Error de máquina de estados / turno inexistente (C-04). */
+export class TurnoEstadoError extends AppError {
+  declare readonly status: 400 | 403 | 404 | 409;
+  readonly desde?: string | undefined;
+  readonly hacia?: string | undefined;
+
+  constructor(args: {
+    status: 400 | 403 | 404 | 409;
+    code: 'validacion' | 'forbidden' | 'not_found' | 'transicion_invalida';
+    message: string;
+    desde?: string;
+    hacia?: string;
+  }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'TurnoEstadoError';
+    this.desde = args.desde;
+    this.hacia = args.hacia;
+  }
+
+  toBody(): Record<string, unknown> {
+    const body: Record<string, unknown> = { error: this.code };
+    if (this.desde !== undefined) body['desde'] = this.desde;
+    if (this.hacia !== undefined) body['hacia'] = this.hacia;
+    if (this.code === 'validacion') body['detalle'] = this.message;
+    return body;
+  }
+}
+
+/** Error de autenticación/rate limit (C-03). Nunca revela si el email existe. */
+export class AuthError extends AppError {
+  declare readonly status: 401 | 429;
+  readonly retryAfterSeconds?: number | undefined;
+
+  constructor(args: {
+    status: 401 | 429;
+    code: 'credenciales_invalidas' | 'demasiados_intentos';
+    message: string;
+    retryAfterSeconds?: number;
+  }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'AuthError';
+    this.retryAfterSeconds = args.retryAfterSeconds;
+  }
+
+  toBody(): Record<string, unknown> {
+    const body: Record<string, unknown> = { error: this.code };
+    if (this.retryAfterSeconds !== undefined) {
+      body['retry_after'] = this.retryAfterSeconds;
+    }
+    return body;
+  }
+}
+
 export class CrearTurnoError extends AppError {
   declare readonly status: 400 | 403 | 409;
   declare readonly code: CrearTurnoErrorCode;

@@ -145,13 +145,13 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 
 ---
 
-### [C-02] `core-models`
-- **Estado**: `[ ]` pendiente
+### [C-02] core-models
+- **Estado**: [x] completo (archivado en openspec/changes/)
 - **Scope**: Modelos base + migraciones iniciales + seed mínimo (entidades núcleo para anti-solapamiento)
   - Modelos: `Profesional`, `SillonBox`, `Paciente`, `Prestacion`, `Turno`, `Bloqueo`, `ObraSocialPlan`, `Pago` (según `04-modelos-datos.md`)
   - Mixins/auditoría comunes: `AuditMixin` (`created_at`, `updated_at`, `deleted_at`, `activo`)
   - Repositorios base (`BaseRepository[T]`), unidad de trabajo (`UnitOfWork`)
-  - Migración 001: tablas core (con claves, FKs, CHECKs: `fin > inicio`, `duracion_min > 0`, `0 ≤ cobertura_pct ≤ 100`, `monto_centavos ≥ 0`)
+  - Migración 001: tablas core + migración 004 de completitud (`obra_social_plan`, `pago`, auditoría/soft-delete) (con claves, FKs, CHECKs: `fin > inicio`, `duracion_min > 0`, `0 ≤ cobertura_pct ≤ 100`, `monto_centavos ≥ 0`)
   - Índices para consultas de solapamiento por intervalo: `(profesional_id, inicio, fin)`, `(sillon_id, inicio, fin)`
   - Seed mínimo: 1 profesional, 1 sillón, 1 prestación, 1 obra social plan, 1 paciente (fixtures ficticios)
   - Tests: validación de CHECKs y estructura de modelos
@@ -168,15 +168,15 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ## FASE 1 — Autenticación y RBAC
 
 ### [C-03] `auth-roles-permisos`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-10-28-c-03-auth-roles-permisos/`)
 - **Scope**: Autenticación + RBAC alineado a actores (recepción, profesional, administración)
-  - Modelos: `User`, `Role`, `UserRole` (basado en `03-actores.md`)
+  - Modelos: `usuario`, `usuario_rol` + `refresh_token` (basado en `03-actores.md`)
   - Endpoints auth: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`
   - RBAC: roles `recepcion`, `profesional`, `administracion` + permisos por recurso
   - JWT: claims `sub`, `tenant_id`, `roles`, `email`, `jti`, `type`, `iat`, `exp`
   - Seguridad: refresh en cookie HttpOnly (secure, samesite=lax), rotación y blacklist
   - Rate limiting (e.g. 5/60s por IP+email) para login
-  - Migración 002: tablas auth
+  - Migración 002 (usuarios/roles) + 005 (refresh tokens/blacklist)
   - Tests: login/refresh/logout, validación de roles, acceso denegado
 - **Dependencias**: C-02
 - **Governance**: CRITICO
@@ -191,13 +191,13 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ## FASE 2 — Agenda, Turnos y Solapamientos (MVP Core)
 
 ### [C-04] `agenda-turnos-overlaps`
-- **Estado**: `[x]` completo (archivado en `openspec/changes/`)
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-10-28-c-04-agenda-turnos-overlaps/`)
 - **Scope**: **MANDATORIO** — Crear turno evitando solapamientos por profesional AND por sillón/box, con reglas verificables
   - Lógica de anti-solapamiento (RN-01, RN-02): consulta de intersección `[inicio, fin)` en estados activos (`reservado`, `confirmado`, `presente`)
   - Validación vs Bloqueos aplicables (profesional/sillón, NULL=global) — RN-04
   - Transacciones con `BEGIN IMMEDIATE` (SQLite) para prevenir race conditions
   - Endpoint: `POST /api/turnos` (creación) con validaciones (fin>inicio, duración vs prestación)
-  - Máquina de estados mínima y validación de transiciones (RN-06/RN-05 implícitos)
+  - Máquina de estados mínima y validación de transiciones (RN-06/RN-05 implícitos) vía `PATCH /api/turnos/:id/estado`
   - Migración 003: ajustes índices/constraints para soporte de solapamientos
   - **Tests obligatorios**: escenarios dado/cuando/entonces para profesional overlap, sillón/box overlap, sin overlap, bloqueos, cambio de estado libera hueco
 - **Dependencias**: C-03
@@ -295,7 +295,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Odontograma FDI (estructura básica, estados por pieza)
   - Endpoints: CRUD HC, obtener por paciente/turno
   - Permisos por rol (profesional/recepción/admin)
-  - Migración 004: tablas HC/odontograma
+  - Migración 006: tablas HC/odontograma
   - Tests: creación/lectura HC, validación de permisos
 - **Dependencias**: C-03
 - **Governance**: ALTO
@@ -314,7 +314,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Estados de presupuesto/plan, seguimiento hasta cobro
   - Endpoints CRUD + conversión presupuesto→plan/turno
   - Cálculos con precios en ARS, totales
-  - Migración 005: tablas presupuestos/planes
+  - Migración 007: tablas presupuestos/planes
   - Tests: cálculo, estados, seguimiento
 - **Dependencias**: C-09
 - **Governance**: MEDIO
@@ -334,7 +334,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Integración Mercado Pago (estructura sin credenciales reales; referencias comerciales)
   - Gestión de deudas/saldos por turno/paciente
   - Endpoints: registrar pago, cerrar caja, ver deudas
-  - Migración 006: ajustes caja/pagos
+  - Migración 008: ajustes caja/pagos
   - Tests: cobro multimedio, cierre diario, trazabilidad
 - **Dependencias**: C-10
 - **Governance**: ALTO
@@ -355,7 +355,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Modelos `ObraSocialPlan` (ya definido) + lógica de cobertura por plan/tratamiento
   - Cálculo de cobertura y saldo a cobrar (RN-07)
   - Liquidación de reintegros (estructura)
-  - Migración 007: ajustes OS/liquidación
+  - Migración 009: ajustes OS/liquidación
   - Tests: cálculo cobertura, saldo, reintegros
 - **Dependencias**: C-03
 - **Governance**: ALTO
@@ -375,7 +375,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Vista previa antes de confirmar liquidación
   - Cálculo basado en cobros/liquidaciones
   - Endpoints/admin para generar liquidación por profesional
-  - Migración 008: tablas comisiones/liquidaciones
+  - Migración 010: tablas comisiones/liquidaciones
   - Tests: cálculo por tratamiento, vista previa, confirmación
 - **Dependencias**: C-12
 - **Governance**: MEDIO
@@ -408,7 +408,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Configuración/catalogo con precios en ARS
   - Validaciones monetarias (centavos), moneda ARS
   - Exposición pública de precios donde aplique (reserva online)
-  - Migración 009: ajustes catálogo/precios
+  - Migración 011: ajustes catálogo/precios
   - Tests: validación ARS, formato, consistencia
 - **Dependencias**: C-04, C-10, C-11
 - **Governance**: BAJO
