@@ -111,3 +111,6 @@ Son contrato; romperlas es un defecto. Formato `NUNCA X → hacer Y`:
 ```
 
 Aplicar TODAS las reglas duras en cada paso. Ante conflicto entre la KB y este archivo, las reglas duras prevalecen.
+
+## Skills propias (TP)
+- **core-models-scaffolder** (`.agents/core-models-scaffolder/SKILL.md`): Usar al preparar/implementar C-02 core-models o al crear entidades/migraciones (BaseRepository/UnitOfWork, AuditMixin, solapamientos, CHECKs/índices). Registrada en `.atl/skill-registry.md`.
