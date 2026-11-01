@@ -212,7 +212,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-05] `reserva-online`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-01-c-05-reserva-online/`)
 - **Scope**: Reserva online 24/7 (F-02) sin fricción excesiva
   - Endpoints públicos: `GET /api/public/agenda/disponibilidad`, `POST /api/public/turnos` (reserva online)
   - Flujo de creación con validaciones de disponibilidad por profesional/sillón
@@ -231,7 +231,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-06] `confirmacion-cancelacion-reprogramacion`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-01-c-06-confirmacion-cancelacion-reprogramacion/`)
 - **Scope**: Confirmación/cancelación/reprogramación por WhatsApp o link (F-03)
   - Endpoints: `POST /api/turnos/{id}/confirmar`, `POST /api/turnos/{id}/cancelar`, `POST /api/turnos/{id}/reprogramar`
   - Links de acción con tokens (seguro, corto plazo) para gestión por paciente
@@ -250,7 +250,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-07] `recordatorios-automaticos`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-01-c-07-recordatorios-automaticos/`)
 - **Scope**: Recordatorios automáticos con actualización sola de la agenda (F-04)
   - Tareas/worker para recordatorios (programación por fecha/hora de turno)
   - Canales: WhatsApp + email (estructura configurable)

@@ -8,6 +8,7 @@ import { createApp } from '../src/shared/app.js';
 import { openDatabase } from '../src/shared/repository.js';
 import { startServer } from '../src/shared/server.js';
 import type { AuthConfig } from '../src/auth/types.js';
+import type { AppConfig } from '../src/shared/config.js';
 
 const AUTH: AuthConfig = {
   jwtSecret: 'test-secret-con-mas-de-32-caracteres-0001',
@@ -18,11 +19,29 @@ const AUTH: AuthConfig = {
   cookieSecure: false,
 };
 
+const APP_CONFIG: AppConfig = {
+  ...AUTH,
+  port: 0,
+  databasePath: ':memory:',
+  nodeEnv: 'test',
+  reservaOnline: {
+    anticipacionMinSegundos: 7200,
+    rateMax: 1000,
+    rateWindowSeconds: 60,
+    turnoTokenTtlSeconds: 7 * 24 * 60 * 60,
+    },
+    recordatorio: {
+      t48hHoras: 48,
+      t24hHoras: 24,
+      canalPredeterminado: 'whatsapp',
+    },
+  };
+
 describe('GET /api/health', () => {
   it('Dado createApp Cuando GET /api/health Entonces 200 {"status":"ok"}', async () => {
     const db = openDatabase(':memory:');
     try {
-      const res = await request(createApp(db, AUTH)).get('/api/health');
+      const res = await request(createApp(db, APP_CONFIG)).get('/api/health');
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ status: 'ok' });
     } finally {

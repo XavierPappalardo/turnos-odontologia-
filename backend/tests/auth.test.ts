@@ -10,6 +10,7 @@ import type { AuthConfig } from '../src/auth/types.js';
 import { createApp } from '../src/shared/app.js';
 import { openDatabase } from '../src/shared/repository.js';
 import { seedMinimo, seedUsuarios } from '../src/shared/seed.js';
+import type { AppConfig } from '../src/shared/config.js';
 
 const PASSWORD = 'Ficticia-1234';
 const AUTH: AuthConfig = {
@@ -20,6 +21,24 @@ const AUTH: AuthConfig = {
   loginRateLimitWindowSeconds: 60,
   cookieSecure: false,
 };
+
+const APP_CONFIG: AppConfig = {
+  ...AUTH,
+  port: 0,
+  databasePath: ':memory:',
+  nodeEnv: 'test',
+  reservaOnline: {
+    anticipacionMinSegundos: 7200,
+    rateMax: 1000,
+    rateWindowSeconds: 60,
+    turnoTokenTtlSeconds: 7 * 24 * 60 * 60,
+    },
+    recordatorio: {
+      t48hHoras: 48,
+      t24hHoras: 24,
+      canalPredeterminado: 'whatsapp',
+    },
+  };
 
 let db: DatabaseSync;
 
@@ -46,7 +65,7 @@ function login(app: ReturnType<typeof createApp>, email: string) {
 
 describe('POST /api/auth/login', () => {
   it('Dado credenciales válidas Cuando login Entonces access token + refresh HttpOnly/Lax', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const res = await login(app, 'recepcion@example.test');
     expect(res.status).toBe(200);
     expect(res.body.token_type).toBe('Bearer');
@@ -64,7 +83,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('Dado email inexistente o password incorrecta Entonces 401 con el mismo cuerpo (sin enumeración)', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const inexistente = await request(app)
       .post('/api/auth/login')
       .send({ email: 'nadie@example.test', password: PASSWORD });
@@ -79,7 +98,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('Dado body incompleto Cuando login Entonces 400', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const res = await request(app).post('/api/auth/login').send({ email: 'x' });
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: 'validacion' });
@@ -90,7 +109,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('Dado demasiados intentos Cuando login Entonces 429 con Retry-After', async () => {
-    const app = createApp(db, { ...AUTH, loginRateLimitMax: 2 });
+    const app = createApp(db, { ...APP_CONFIG, loginRateLimitMax: 2 });
     await login(app, 'recepcion@example.test');
     await login(app, 'recepcion@example.test');
     const tercero = await login(app, 'recepcion@example.test');
@@ -102,7 +121,7 @@ describe('POST /api/auth/login', () => {
 
 describe('GET /api/auth/me', () => {
   it('Dado access token válido Cuando me Entonces devuelve usuario y roles', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const loginRes = await login(app, 'admin@example.test');
     const res = await request(app)
       .get('/api/auth/me')
@@ -113,7 +132,7 @@ describe('GET /api/auth/me', () => {
   });
 
   it('Dado sin token o token inválido Cuando me Entonces 401', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     expect((await request(app).get('/api/auth/me')).status).toBe(401);
     expect(
       (
@@ -127,7 +146,7 @@ describe('GET /api/auth/me', () => {
 
 describe('POST /api/auth/refresh', () => {
   it('Dado refresh válido Cuando refresco Entonces rota el token y emite nuevo access', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const agent = request.agent(app);
     const loginRes = await agent.post('/api/auth/login').send({
       email: 'recepcion@example.test',
@@ -142,7 +161,7 @@ describe('POST /api/auth/refresh', () => {
   });
 
   it('Dado refresh ya usado Cuando lo reutilizo Entonces 401 y revoca la familia', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const agent = request.agent(app);
     const loginRes = await agent.post('/api/auth/login').send({
       email: 'recepcion@example.test',
@@ -164,7 +183,7 @@ describe('POST /api/auth/refresh', () => {
   });
 
   it('Dado refresh ausente o inválido Entonces 401', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     expect((await request(app).post('/api/auth/refresh')).status).toBe(401);
     expect(
       (
@@ -178,7 +197,7 @@ describe('POST /api/auth/refresh', () => {
 
 describe('POST /api/auth/logout', () => {
   it('Dado sesión activa Cuando logout Entonces limpia cookie y revoca refresh', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const agent = request.agent(app);
     const loginRes = await agent.post('/api/auth/login').send({
       email: 'recepcion@example.test',
@@ -200,7 +219,7 @@ describe('POST /api/auth/logout', () => {
 
 describe('RBAC real sobre agenda (C-03 + C-04)', () => {
   it('Dado recepción Cuando crea turno Entonces 201; profesional recibe 403', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const recepcion = await login(app, 'recepcion@example.test');
     const profesional = await login(app, 'profesional@example.test');
     const payload = {

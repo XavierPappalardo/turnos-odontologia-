@@ -16,6 +16,7 @@ import { createApp } from '../src/shared/app.js';
 import { applyMigration003, openDatabase } from '../src/shared/repository.js';
 import { signToken } from '../src/auth/tokens.js';
 import type { AuthConfig } from '../src/auth/types.js';
+import type { AppConfig } from '../src/shared/config.js';
 import type {
   PacienteId,
   ProfesionalId,
@@ -31,6 +32,24 @@ const AUTH: AuthConfig = {
   loginRateLimitWindowSeconds: 60,
   cookieSecure: false,
 };
+
+const APP_CONFIG: AppConfig = {
+  ...AUTH,
+  port: 0,
+  databasePath: ':memory:',
+  nodeEnv: 'test',
+  reservaOnline: {
+    anticipacionMinSegundos: 7200,
+    rateMax: 1000,
+    rateWindowSeconds: 60,
+    turnoTokenTtlSeconds: 7 * 24 * 60 * 60,
+    },
+    recordatorio: {
+      t48hHoras: 48,
+      t24hHoras: 24,
+      canalPredeterminado: 'whatsapp',
+    },
+  };
 
 function bearer(roles: readonly Rol[]): string {
   const token = signToken(
@@ -291,7 +310,7 @@ describe('Dado BloqueoRepository sobre SQLite real', () => {
 // ── 5.1–5.7 Escenarios de endpoint ──────────────────────────────────────────
 describe('POST /api/turnos', () => {
   it('5.1 Dado profesional y sillón libres Cuando creo turno Entonces 201 reservado', async () => {
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']))
       .send({
@@ -311,7 +330,7 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T10:30:00.000Z',
     });
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']))
       .send({
@@ -331,7 +350,7 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T10:30:00.000Z',
     });
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']))
       .send({
@@ -351,7 +370,7 @@ describe('POST /api/turnos', () => {
       fin: '2026-10-07T10:30:00.000Z',
       estado: 'cancelado',
     });
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']))
       .send({
@@ -370,7 +389,7 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T12:00:00.000Z',
     });
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']))
       .send({
@@ -388,7 +407,7 @@ describe('POST /api/turnos', () => {
     const antes = (
       db.prepare(`SELECT COUNT(*) AS n FROM turno`).get() as { n: number }
     ).n;
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']))
       .send({
@@ -409,7 +428,7 @@ describe('POST /api/turnos', () => {
       inicio: '2026-10-07T10:00:00.000Z',
       fin: '2026-10-07T10:30:00.000Z',
     });
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']))
       .send({
@@ -423,7 +442,7 @@ describe('POST /api/turnos', () => {
   });
 
   it('Dado rol sin permiso Cuando creo turno Entonces 403 sin PHI', async () => {
-    const res = await request(createApp(db, AUTH))
+    const res = await request(createApp(db, APP_CONFIG))
       .post('/api/turnos')
       .set('authorization', bearer(['profesional']))
       .send({
@@ -449,7 +468,7 @@ describe('POST /api/turnos', () => {
         logs.push(args.map(String).join(' '));
       });
     try {
-      const res = await request(createApp(db, AUTH))
+      const res = await request(createApp(db, APP_CONFIG))
         .post('/api/turnos')
         .set('authorization', bearer(['recepcion']))
         .send({
@@ -479,7 +498,7 @@ describe('Dado hueco libre Cuando dos escrituras concurrentes Entonces un 201 + 
     const file = join(dir, 'concurrencia.db');
     const dbFile = openDatabase(file);
     seedBase(dbFile);
-    const app = createApp(dbFile, AUTH);
+    const app = createApp(dbFile, APP_CONFIG);
     try {
       const payload = {
         profesional_id: PROF,

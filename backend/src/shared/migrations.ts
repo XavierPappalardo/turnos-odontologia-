@@ -159,6 +159,40 @@ CREATE INDEX IF NOT EXISTS idx_refresh_vigente ON refresh_token(token_hash, revo
 ALTER TABLE usuario ADD COLUMN deleted_at TEXT;
 `;
 
+/** 006 — tokens de acción de turno (C-06: confirmar/cancelar/reprogramar). */
+export const MIGRATION_006_TURNO_TOKEN = `
+CREATE TABLE IF NOT EXISTS turno_token (
+  id TEXT PRIMARY KEY,
+  turno_id TEXT NOT NULL REFERENCES turno(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  accion TEXT NOT NULL CHECK (accion IN ('confirmar', 'cancelar', 'reprogramar')),
+  expires_at TEXT NOT NULL,
+  usado_en TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_turno_token_turno ON turno_token(turno_id);
+CREATE INDEX IF NOT EXISTS idx_turno_token_valido ON turno_token(token_hash, usado_en, expires_at);
+`;
+
+/** 007 — recordatorios automáticos de turno (C-07). */
+export const MIGRATION_007_RECORDATORIO = `
+CREATE TABLE IF NOT EXISTS recordatorio (
+  id TEXT PRIMARY KEY,
+  turno_id TEXT NOT NULL REFERENCES turno(id),
+  tipo TEXT NOT NULL CHECK (tipo IN ('recordatorio_48h', 'recordatorio_24h')),
+  canal TEXT NOT NULL CHECK (canal IN ('whatsapp', 'email')),
+  programado_para TEXT NOT NULL,
+  estado TEXT NOT NULL DEFAULT 'pendiente'
+    CHECK (estado IN ('pendiente', 'enviado', 'fallido', 'cancelado')),
+  enviado_en TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_recordatorio_estado_fecha ON recordatorio(estado, programado_para);
+CREATE INDEX IF NOT EXISTS idx_recordatorio_turno_tipo ON recordatorio(turno_id, tipo);
+`;
+
 /** Una migración versionada: id ascendente + SQL idempotente (`IF NOT EXISTS`). */
 export interface Migration {
   readonly id: string;
@@ -175,6 +209,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '003', sql: MIGRATION_003_TURNO_BLOQUEO },
   { id: '004', sql: MIGRATION_004_CORE_COMPLETE },
   { id: '005', sql: MIGRATION_005_AUTH_TOKENS },
+  { id: '006', sql: MIGRATION_006_TURNO_TOKEN },
+  { id: '007', sql: MIGRATION_007_RECORDATORIO },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

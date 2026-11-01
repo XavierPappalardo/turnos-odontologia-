@@ -10,7 +10,7 @@ import type {
   TurnoId,
 } from './types.js';
 
-export type EjeConflicto = 'profesional' | 'sillon' | 'bloqueo';
+export type EjeConflicto = 'profesional' | 'sillon' | 'bloqueo' | 'anticipacion';
 
 export type CrearTurnoErrorCode = 'validacion' | 'forbidden' | 'conflicto';
 

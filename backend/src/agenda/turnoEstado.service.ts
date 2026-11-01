@@ -9,6 +9,7 @@ import { puedeCambiarEstadoTurno, type Rol } from '../shared/auth.js';
 import { TurnoEstadoError } from '../shared/errors.js';
 import type { TurnoEstado, TurnoId } from '../shared/types.js';
 import { TurnoRepository, type TurnoRow } from './turno.repository.js';
+import { cancelarRecordatoriosDeTurno } from '../notificaciones/recordatorio.worker.js';
 
 export const TRANSICIONES: Readonly<Record<TurnoEstado, readonly TurnoEstado[]>> = {
   reservado: ['confirmado', 'cancelado'],
@@ -89,6 +90,10 @@ export function cambiarEstadoTurno(
       desde: actual.estado,
       hacia: input.nuevoEstado,
     });
+  }
+
+  if (input.nuevoEstado === 'cancelado' || input.nuevoEstado === 'ausente') {
+    cancelarRecordatoriosDeTurno(db, input.turnoId);
   }
 
   return turnos.findById(input.turnoId) as TurnoRow;

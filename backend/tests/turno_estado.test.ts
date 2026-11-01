@@ -16,6 +16,7 @@ import { createApp } from '../src/shared/app.js';
 import { openDatabase } from '../src/shared/repository.js';
 import { SEED_IDS, seedMinimo } from '../src/shared/seed.js';
 import type { Rol, TurnoEstado, TurnoId } from '../src/shared/types.js';
+import type { AppConfig } from '../src/shared/config.js';
 
 const AUTH: AuthConfig = {
   jwtSecret: 'test-secret-con-mas-de-32-caracteres-estado',
@@ -25,6 +26,24 @@ const AUTH: AuthConfig = {
   loginRateLimitWindowSeconds: 60,
   cookieSecure: false,
 };
+
+const APP_CONFIG: AppConfig = {
+  ...AUTH,
+  port: 0,
+  databasePath: ':memory:',
+  nodeEnv: 'test',
+  reservaOnline: {
+    anticipacionMinSegundos: 7200,
+    rateMax: 1000,
+    rateWindowSeconds: 60,
+    turnoTokenTtlSeconds: 7 * 24 * 60 * 60,
+    },
+    recordatorio: {
+      t48hHoras: 48,
+      t24hHoras: 24,
+      canalPredeterminado: 'whatsapp',
+    },
+  };
 
 let db: DatabaseSync;
 
@@ -248,7 +267,7 @@ describe('Dado un turno cancelado Cuando reservo el mismo hueco Entonces se libe
 
 describe('PATCH /api/turnos/:id/estado', () => {
   it('Dado recepción autenticada Cuando confirma un turno Entonces 200 y estado persistido', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const id = crearTurnoBase();
     const res = await request(app)
       .patch(`/api/turnos/${id}/estado`)
@@ -261,7 +280,7 @@ describe('PATCH /api/turnos/:id/estado', () => {
   });
 
   it('Dado rol profesional Cuando PATCH Entonces 403', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const id = crearTurnoBase();
     const res = await request(app)
       .patch(`/api/turnos/${id}/estado`)
@@ -274,7 +293,7 @@ describe('PATCH /api/turnos/:id/estado', () => {
   });
 
   it('Dado sin token Cuando PATCH Entonces 401', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const id = crearTurnoBase();
     const res = await request(app)
       .patch(`/api/turnos/${id}/estado`)
@@ -283,7 +302,7 @@ describe('PATCH /api/turnos/:id/estado', () => {
   });
 
   it('Dado transición inválida Cuando PATCH Entonces 409 con desde/hacia sin PHI', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const id = crearTurnoBase('atendido');
     const res = await request(app)
       .patch(`/api/turnos/${id}/estado`)
@@ -300,7 +319,7 @@ describe('PATCH /api/turnos/:id/estado', () => {
   });
 
   it('Dado body sin estado o turno inexistente Entonces 400 / 404', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const id = crearTurnoBase();
     const sinEstado = await request(app)
       .patch(`/api/turnos/${id}/estado`)
@@ -317,7 +336,7 @@ describe('PATCH /api/turnos/:id/estado', () => {
   });
 
   it('Dado POST /api/turnos sin body Cuando recepción crea Entonces 400 (no 500)', async () => {
-    const app = createApp(db, AUTH);
+    const app = createApp(db, APP_CONFIG);
     const res = await request(app)
       .post('/api/turnos')
       .set('authorization', bearer(['recepcion']));

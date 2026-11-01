@@ -10,6 +10,19 @@
 
 export type NodeEnv = 'development' | 'production' | 'test';
 
+export interface ReservaOnlineConfig {
+  readonly anticipacionMinSegundos: number;
+  readonly rateMax: number;
+  readonly rateWindowSeconds: number;
+  readonly turnoTokenTtlSeconds: number;
+}
+
+export interface RecordatorioConfig {
+  readonly t48hHoras: number;
+  readonly t24hHoras: number;
+  readonly canalPredeterminado: 'whatsapp' | 'email';
+}
+
 export interface AppConfig {
   readonly port: number;
   readonly databasePath: string;
@@ -20,6 +33,8 @@ export interface AppConfig {
   readonly loginRateLimitMax: number;
   readonly loginRateLimitWindowSeconds: number;
   readonly cookieSecure: boolean;
+  readonly reservaOnline: ReservaOnlineConfig;
+  readonly recordatorio: RecordatorioConfig;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'production', 'test'];
@@ -28,6 +43,13 @@ const DEFAULT_ACCESS_TTL = 15 * 60;
 const DEFAULT_REFRESH_TTL = 7 * 24 * 60 * 60;
 const DEFAULT_LOGIN_MAX = 5;
 const DEFAULT_LOGIN_WINDOW = 60;
+const DEFAULT_RESERVA_ONLINE_ANTICIPACION = 7200; // 2 h, ficticio [Supuesto RN-06]
+const DEFAULT_RESERVA_ONLINE_RATE_MAX = 10;
+const DEFAULT_RESERVA_ONLINE_RATE_WINDOW = 60;
+const DEFAULT_TURNO_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 días, ficticio [Supuesto]
+const DEFAULT_RECORDATORIO_T48H_HORAS = 48; // ficticio [Supuesto FL-03]
+const DEFAULT_RECORDATORIO_T24H_HORAS = 24; // ficticio [Supuesto FL-03]
+const DEFAULT_RECORDATORIO_CANAL_PREDETERMINADO: 'whatsapp' | 'email' = 'whatsapp';
 
 /** Error de configuración: nombra la variable faltante/inválida (fail-fast). */
 export class ConfigError extends Error {
@@ -117,5 +139,41 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       DEFAULT_LOGIN_WINDOW,
     ),
     cookieSecure: nodeEnv === 'production',
+    reservaOnline: {
+      anticipacionMinSegundos: positiveInt(
+        env,
+        'RESERVA_ONLINE_ANTICIPACION_MIN_SEGUNDOS',
+        DEFAULT_RESERVA_ONLINE_ANTICIPACION,
+      ),
+      rateMax: positiveInt(
+        env,
+        'RESERVA_ONLINE_RATE_MAX',
+        DEFAULT_RESERVA_ONLINE_RATE_MAX,
+      ),
+      rateWindowSeconds: positiveInt(
+        env,
+        'RESERVA_ONLINE_RATE_WINDOW_SECONDS',
+        DEFAULT_RESERVA_ONLINE_RATE_WINDOW,
+      ),
+      turnoTokenTtlSeconds: positiveInt(
+        env,
+        'TURN_TOKEN_TTL_SECONDS',
+        DEFAULT_TURNO_TOKEN_TTL_SECONDS,
+      ),
+    },
+    recordatorio: {
+      t48hHoras: positiveInt(
+        env,
+        'RECORDATORIO_T48H_HORAS',
+        DEFAULT_RECORDATORIO_T48H_HORAS,
+      ),
+      t24hHoras: positiveInt(
+        env,
+        'RECORDATORIO_T24H_HORAS',
+        DEFAULT_RECORDATORIO_T24H_HORAS,
+      ),
+      canalPredeterminado: (env['RECORDATORIO_CANAL_PREDETERMINADO'] ??
+        DEFAULT_RECORDATORIO_CANAL_PREDETERMINADO) as 'whatsapp' | 'email',
+    },
   };
 }
