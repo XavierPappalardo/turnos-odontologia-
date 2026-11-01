@@ -87,6 +87,44 @@ export class AuthError extends AppError {
   }
 }
 
+export type BloqueoErrorCode =
+  | 'validacion'
+  | 'forbidden'
+  | 'not_found'
+  | 'conflicto';
+
+/**
+ * Error tipado del CRUD de bloqueos (C-08, design D4).
+ * `turno_ids` solo lleva ids opacos; `detalle` solo en `validacion` (R3).
+ */
+export class BloqueoError extends AppError {
+  declare readonly status: 400 | 403 | 404 | 409;
+  declare readonly code: BloqueoErrorCode;
+  readonly eje?: 'bloqueo' | undefined;
+  readonly turnoIds?: readonly TurnoId[] | undefined;
+
+  constructor(args: {
+    status: 400 | 403 | 404 | 409;
+    code: BloqueoErrorCode;
+    message: string;
+    eje?: 'bloqueo';
+    turnoIds?: readonly TurnoId[];
+  }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'BloqueoError';
+    this.eje = args.eje;
+    this.turnoIds = args.turnoIds;
+  }
+
+  toBody(): Record<string, unknown> {
+    const body: Record<string, unknown> = { error: this.code };
+    if (this.eje !== undefined) body['eje'] = this.eje;
+    if (this.turnoIds !== undefined) body['turno_ids'] = this.turnoIds;
+    if (this.code === 'validacion') body['detalle'] = this.message;
+    return body;
+  }
+}
+
 export class CrearTurnoError extends AppError {
   declare readonly status: 400 | 403 | 409;
   declare readonly code: CrearTurnoErrorCode;

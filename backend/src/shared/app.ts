@@ -4,6 +4,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { authRouter } from '../auth/auth.routes.js';
 import type { AppConfig } from './config.js';
 import { turnosRouter } from '../agenda/turnos.routes.js';
+import { bloqueosRouter } from '../agenda/bloqueos.routes.js';
 import { reservaOnlineRouter } from '../agenda/reservaOnline.routes.js';
 import { turnoTokenRouter } from '../agenda/turnoToken.routes.js';
 import { recordatorioRouter } from '../notificaciones/recordatorio.routes.js';
@@ -24,6 +25,7 @@ export function createApp(db: DatabaseSync, config: AppConfig): Express {
   });
   app.use('/api', authRouter(db, config));
   app.use('/api', turnosRouter(db, config));
+  app.use('/api', bloqueosRouter(db, config));
   app.use('/api/public', reservaOnlineRouter(db, config));
   app.use('/api/public', turnoTokenRouter(db, config));
   app.use('/api/public', recordatorioRouter(db, config));

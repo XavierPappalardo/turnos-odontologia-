@@ -13,10 +13,25 @@ export const ROLES_CAMBIAR_ESTADO: readonly Rol[] = [
   'administracion',
 ];
 
+/** Gestión y lectura de bloqueos: recepción y administración (design D6). */
+export const ROLES_BLOQUEOS: readonly Rol[] = ['recepcion', 'administracion'];
+
 export function puedeCrearTurno(rol: Rol | undefined): boolean {
   return rol !== undefined && ROLES_CREAR_TURNO.includes(rol);
 }
 
 export function puedeCambiarEstadoTurno(rol: Rol | undefined): boolean {
   return rol !== undefined && ROLES_CAMBIAR_ESTADO.includes(rol);
+}
+
+export function puedeGestionarBloqueos(rol: Rol | undefined): boolean {
+  return rol !== undefined && ROLES_BLOQUEOS.includes(rol);
+}
+
+/**
+ * Contrato de lectura testeable (design D6). Mismo conjunto de roles que la
+ * gestión: quien lee ve todos los bloqueos vigentes, sin acotamiento por query.
+ */
+export function puedeLeerBloqueos(rol: Rol | undefined): boolean {
+  return rol !== undefined && ROLES_BLOQUEOS.includes(rol);
 }

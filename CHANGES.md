@@ -269,7 +269,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-08] `bloqueos-agenda`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-01-c-08-bloqueos-agenda/`)
 - **Scope**: Bloqueos de agenda (feriados, mantenimiento, ausencias) — RN-04
   - Modelo `Bloqueo` ya definido; CRUD admin: `POST/GET/PUT/DELETE /api/bloqueos`
   - Validación de intersección con turnos activos al crear/actualizar bloqueos

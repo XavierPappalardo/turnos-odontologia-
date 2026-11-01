@@ -42,6 +42,15 @@ export function softDeleteStamp(): { deleted_at: string } {
   return { deleted_at: nowIsoUtc() };
 }
 
+/** Nombres de columna interpolables: solo minúsculas, dígitos y `_` (design D1). */
+const IDENTIFICADOR_COLUMNA = /^[a-z][a-z0-9_]*$/;
+
+function validarIdentificadorColumna(col: string): void {
+  if (!IDENTIFICADOR_COLUMNA.test(col)) {
+    throw new Error(`identificador de columna invalido: ${col}`);
+  }
+}
+
 /**
  * Repositorio base genérico. Todo SQL vive en repositorios (R8):
  * el servicio y el endpoint NUNCA emiten SQL suelto.
@@ -89,6 +98,49 @@ export class BaseRepository<T extends object> {
   findById(id: string): T | undefined {
     const stmt = this.db.prepare(`SELECT * FROM ${this.table} WHERE id = ?`);
     return stmt.get(id) as T | undefined;
+  }
+
+  /**
+   * Actualización parcial (design D1): SET dinámico + `updated_at`,
+   * solo sobre filas vigentes (`deleted_at IS NULL`). Un patch vacío
+   * refresca únicamente `updated_at`.
+   */
+  update(
+    id: string,
+    patch: Partial<Omit<T, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>>,
+  ): boolean {
+    const cols = Object.keys(patch);
+    for (const col of cols) {
+      validarIdentificadorColumna(col);
+    }
+    const assignments = cols.map((col) => `${col} = ?`);
+    assignments.push('updated_at = ?');
+    const values = cols.map(
+      (col) => (patch as Record<string, unknown>)[col] as SQLInputValue,
+    );
+    values.push(nowIsoUtc());
+    values.push(id);
+    const stmt = this.db.prepare(
+      `UPDATE ${this.table} SET ${assignments.join(', ')} WHERE id = ? AND deleted_at IS NULL`,
+    );
+    const result = stmt.run(...values);
+    return result.changes === 1;
+  }
+
+  /**
+   * Baja lógica (design D1): sella `deleted_at`/`updated_at` sin borrar la fila.
+   * La condición `deleted_at IS NULL` evita reescribir el sello en una segunda baja.
+   */
+  softDelete(id: string): boolean {
+    const now = nowIsoUtc();
+    const result = this.db
+      .prepare(
+        `UPDATE ${this.table}
+            SET deleted_at = ?, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL`,
+      )
+      .run(now, now, id);
+    return result.changes === 1;
   }
 
   countAll(): number {

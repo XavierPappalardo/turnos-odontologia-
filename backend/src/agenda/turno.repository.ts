@@ -41,6 +41,8 @@ export interface NuevoTurno {
 }
 
 const ESTADOS_ACTIVOS_SQL = `('reservado', 'confirmado', 'presente')`;
+/** Solo turnos no dados de baja ocupan agenda (design D3). */
+const TURNO_VIGENTE_SQL = 'deleted_at IS NULL';
 
 export class TurnoRepository extends BaseRepository<TurnoRow> {
   constructor(db: DatabaseSync) {
@@ -74,6 +76,7 @@ export class TurnoRepository extends BaseRepository<TurnoRow> {
       `SELECT 1 FROM turno
         WHERE profesional_id = ?
           AND estado IN ${ESTADOS_ACTIVOS_SQL}
+          AND ${TURNO_VIGENTE_SQL}
           AND inicio < ?
           AND fin > ?
         LIMIT 1`,
@@ -91,6 +94,7 @@ export class TurnoRepository extends BaseRepository<TurnoRow> {
       `SELECT 1 FROM turno
         WHERE sillon_id = ?
           AND estado IN ${ESTADOS_ACTIVOS_SQL}
+          AND ${TURNO_VIGENTE_SQL}
           AND inicio < ?
           AND fin > ?
         LIMIT 1`,
@@ -125,6 +129,7 @@ export class TurnoRepository extends BaseRepository<TurnoRow> {
         WHERE profesional_id = ?
           AND sillon_id = ?
           AND estado IN ${ESTADOS_ACTIVOS_SQL}
+          AND ${TURNO_VIGENTE_SQL}
           AND inicio < ?
           AND fin > ?`,
     );
