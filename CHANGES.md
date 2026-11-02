@@ -308,7 +308,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-10] `presupuestos-planes-tratamiento`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-02-c-10-presupuestos/`)
 - **Scope**: Presupuestos y planes de tratamiento con seguimiento hasta cobro (F-06)
   - Modelos: `Presupuesto`, `ItemPresupuesto`, `PlanTratamiento`, `EtapaPlan`
   - Estados de presupuesto/plan, seguimiento hasta cobro

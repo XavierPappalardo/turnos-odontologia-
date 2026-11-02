@@ -193,6 +193,38 @@ CREATE INDEX IF NOT EXISTS idx_recordatorio_estado_fecha ON recordatorio(estado,
 CREATE INDEX IF NOT EXISTS idx_recordatorio_turno_tipo ON recordatorio(turno_id, tipo);
 `;
 
+/** 009 — presupuestos e ítems de presupuesto (C-10). */
+export const MIGRATION_009_PRESUPUESTOS = `
+CREATE TABLE IF NOT EXISTS presupuesto (
+  id TEXT PRIMARY KEY,
+  paciente_id TEXT NOT NULL REFERENCES paciente(id),
+  turno_id TEXT REFERENCES turno(id),
+  estado TEXT NOT NULL DEFAULT 'borrador'
+    CHECK (estado IN ('borrador', 'enviado', 'aceptado', 'rechazado', 'vencido')),
+  total_centavos INTEGER NOT NULL DEFAULT 0 CHECK (total_centavos >= 0),
+  cobertura_centavos INTEGER NOT NULL DEFAULT 0 CHECK (cobertura_centavos >= 0),
+  saldo_centavos INTEGER NOT NULL DEFAULT 0 CHECK (saldo_centavos >= 0),
+  obra_social_plan_id TEXT REFERENCES obra_social_plan(id),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE TABLE IF NOT EXISTS item_presupuesto (
+  id TEXT PRIMARY KEY,
+  presupuesto_id TEXT NOT NULL REFERENCES presupuesto(id),
+  descripcion TEXT NOT NULL,
+  monto_centavos INTEGER NOT NULL CHECK (monto_centavos >= 0),
+  pieza_fdi INTEGER,
+  superficie TEXT CHECK (superficie IN ('M','D','V','L','O','I')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_presupuesto_paciente ON presupuesto(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_presupuesto_estado ON presupuesto(estado);
+CREATE INDEX IF NOT EXISTS idx_item_presupuesto ON item_presupuesto(presupuesto_id);
+`;
+
 /** 008 — historia clínica, odontograma, delegaciones y auditoría PHI (C-09). */
 export const MIGRATION_008_CLINICA = `
 ALTER TABLE paciente ADD COLUMN fecha_nacimiento TEXT;
@@ -320,6 +352,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '006', sql: MIGRATION_006_TURNO_TOKEN },
   { id: '007', sql: MIGRATION_007_RECORDATORIO },
   { id: '008', sql: MIGRATION_008_CLINICA },
+  { id: '009', sql: MIGRATION_009_PRESUPUESTOS },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */
