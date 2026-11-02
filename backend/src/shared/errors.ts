@@ -165,3 +165,85 @@ export class CrearTurnoError extends AppError {
     return body;
   }
 }
+
+/** Error de validación clínica (400). Sin nombres, detalle clínico ni PHI. */
+export class ValidacionClinicaError extends AppError {
+  declare readonly status: 400;
+  declare readonly code: string;
+
+  constructor(args: { status: 400; code: string; message: string }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'ValidacionClinicaError';
+  }
+
+  toBody(): Record<string, unknown> {
+    return { error: this.code };
+  }
+}
+
+/** Error de acceso a HC/odontograma (403) con motivo de denegación. Sin PHI. */
+export class AccesoHcError extends AppError {
+  declare readonly status: 403;
+  declare readonly code: string;
+  readonly motivo: string;
+
+  constructor(args: {
+    status: 403;
+    code: string;
+    message: string;
+    motivo: 'sin_vinculo' | 'rol_no_autorizado' | 'delegacion_vencida';
+  }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'AccesoHcError';
+    this.motivo = args.motivo;
+  }
+
+  toBody(): Record<string, unknown> {
+    return { error: this.code, motivo: this.motivo };
+  }
+}
+
+/** Error de enmienda duplicada (409). Sin PHI. */
+export class EnmiendaDuplicadaError extends AppError {
+  declare readonly status: 409;
+  declare readonly code: string;
+
+  constructor(args: { status: 409; code: string; message: string }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'EnmiendaDuplicadaError';
+  }
+
+  toBody(): Record<string, unknown> {
+    return { error: this.code };
+  }
+}
+
+/** Error de evento no encontrado (404). Sin PHI. */
+export class EventoNoEncontradoError extends AppError {
+  declare readonly status: 404;
+  declare readonly code: string;
+
+  constructor(args: { status: 404; code: string; message: string }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'EventoNoEncontradoError';
+  }
+
+  toBody(): Record<string, unknown> {
+    return { error: this.code };
+  }
+}
+
+/** Error de intento de modificación sobre tabla insert-only (409). Sin PHI. */
+export class EventoInmutableError extends AppError {
+  declare readonly status: 409;
+  declare readonly code: string;
+
+  constructor(args: { status: 409; code: string; message: string }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'EventoInmutableError';
+  }
+
+  toBody(): Record<string, unknown> {
+    return { error: this.code };
+  }
+}

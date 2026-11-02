@@ -1,81 +1,41 @@
-# Spec — auth/auth-roles
+# Spec Delta — auth/auth-roles
 
-## Purpose
+## ADDED Requirements
 
-Autentica usuarios internos y aplica RBAC por rol (`recepcion`, `profesional`, `administracion`), con sesión de access token JWT y refresh rotativo en cookie HttpOnly, sin exponer PHI ni secretos en respuestas o logs.
+### Requirement: Identidad profesional del usuario
 
-## Requirements
+El sistema SHALL persistir `usuario.profesional_id` como FK nullable y única hacia `profesional`, SHALL exponerlo como `profesional_id` (o `null`) en `GET /api/auth/me`, y SHALL resolverlo desde la base en cada request en lugar de depender de un claim del JWT.
 
-### Requirement: Login con credenciales válidas
+#### Scenario: Usuario vinculado a un profesional
 
-El sistema SHALL exponer `POST /api/auth/login` que valida email+password contra `usuario`/`usuario_rol` y responde `200` con `access_token`, `token_type:"Bearer"`, `expires_in` y `user`; SHALL emitir el refresh en cookie `refresh_token` con `HttpOnly`, `SameSite=Lax`, `Path=/api/auth`, `Secure` cuando `NODE_ENV=production` y `Max-Age` igual al TTL configurado.
+- **WHEN** un usuario con `profesional_id` definido consulta `GET /api/auth/me`
+- **THEN** la respuesta `200` incluye ese `profesional_id` y no incluye datos clínicos ni PHI
 
-#### Scenario: Login válido emite access + refresh
+#### Scenario: Usuario sin vínculo profesional
 
-- **WHEN** un usuario activo envía credenciales correctas
-- **THEN** el sistema responde `200` con un access token verificable (claims `sub`, `tenant_id`, `roles`, `email`, `jti`, `type`, `iat`, `exp`) y una cookie de refresh HttpOnly/Lax
+- **WHEN** un usuario sin `profesional_id` consulta `GET /api/auth/me`
+- **THEN** la respuesta `200` devuelve `profesional_id: null`
 
-#### Scenario: Credenciales inválidas no enumeran usuarios
+#### Scenario: Un profesional no se comparte entre usuarios
 
-- **WHEN** se envía un email inexistente o una password incorrecta
-- **THEN** el sistema responde `401` con el mismo cuerpo en ambos casos y sin email, nombre ni hash en la respuesta
+- **WHEN** se intenta asignar el mismo `profesional_id` a un segundo usuario, o asignar un `profesional_id` inexistente
+- **THEN** SQLite rechaza la escritura por UNIQUE o por FK
 
-### Requirement: Contraseñas y tokens seguros sin dependencias externas
+#### Scenario: Desvinculación inmediata
 
-El sistema SHALL almacenar contraseñas con scrypt (salt aleatorio + comparación en tiempo constante) y SHALL firmar JWT HS256 con `JWT_SECRET` de al menos 32 caracteres; SHALL almacenar solo el hash SHA-256 del refresh token.
+- **WHEN** un usuario obtiene un access token, luego se le quita el `profesional_id` y vuelve a llamar una ruta clínica
+- **THEN** el sistema ya no lo trata como profesional vinculado, aunque el token siga vigente
 
-#### Scenario: Secreto faltante o corto falla al arrancar
+### Requirement: Autorización clínica por vínculo, no solo por rol
 
-- **WHEN** `JWT_SECRET` no está definido o tiene menos de 32 caracteres
-- **THEN** la carga de configuración falla con `ConfigError` nombrando `JWT_SECRET`
+El sistema SHALL evaluar las rutas clínicas con autenticación Bearer y autorización por vínculo profesional; SHALL NOT autorizar por la mera presencia del rol `profesional`.
 
-### Requirement: Rotación y blacklist de refresh tokens
+#### Scenario: Rol profesional sin vínculo no autoriza
 
-El sistema SHALL rotar el refresh en cada `POST /api/auth/refresh` dentro de una transacción `BEGIN IMMEDIATE`, revocando el token usado y registrando el reemplazo. Reutilizar un refresh ya revocado SHALL responder `401` y revocar toda la familia de tokens del usuario.
+- **WHEN** un usuario con rol `profesional` pero sin `profesional_id` solicita un recurso clínico
+- **THEN** el sistema responde `403` y no ejecuta la operación
 
-#### Scenario: Refresh válido rota el token
+#### Scenario: Rol ajeno a la clínica no autoriza
 
-- **WHEN** se presenta un refresh vigente en la cookie
-- **THEN** el sistema responde `200` con un nuevo access token y una nueva cookie de refresh distinta
-
-#### Scenario: Reutilización de refresh revoca la familia
-
-- **WHEN** se presenta un refresh ya rotado o revocado
-- **THEN** el sistema responde `401` y el resto de la familia deja de ser válido
-
-#### Scenario: Logout revoca el refresh
-
-- **WHEN** un usuario autenticado llama `POST /api/auth/logout`
-- **THEN** el sistema responde `204`, limpia la cookie y el refresh deja de poder usarse
-
-### Requirement: RBAC por rol
-
-El sistema SHALL exponer `GET /api/auth/me` y SHALL proteger las rutas internas con Bearer token. `POST /api/turnos` y `PATCH /api/turnos/:id/estado` SHALL aceptar solo roles `recepcion` o `administracion`; un rol `profesional` SHALL recibir `403`; una petición sin token o con token inválido/expirado SHALL recibir `401`.
-
-#### Scenario: Acceso autorizado
-
-- **WHEN** recepción o administración accede a una ruta de agenda con un access token válido
-- **THEN** la operación se ejecuta (no `401`/`403`)
-
-#### Scenario: Acceso denegado sin filtrar información
-
-- **WHEN** un rol no autorizado o un token inválido accede a una ruta protegida
-- **THEN** el sistema responde `403` o `401` respectivamente, sin PHI ni detalles del token
-
-### Requirement: Rate limiting de login
-
-El sistema SHALL limitar los intentos de login por IP+email según `LOGIN_RATE_LIMIT_MAX` y `LOGIN_RATE_LIMIT_WINDOW_SECONDS` (default 5/60 s) y SHALL responder `429` con `Retry-After` al superar el límite.
-
-#### Scenario: Demasiados intentos
-
-- **WHEN** se superan los intentos permitidos en la ventana
-- **THEN** el sistema responde `429 {error:"demasiados_intentos"}` con cabecera `Retry-After`
-
-### Requirement: Seed de usuarios ficticios
-
-El sistema SHALL proveer un seed idempotente (`npm run seed`) que crea usuarios ficticios para los tres roles usando `SEED_PASSWORD`; SHALL NOT contener contraseñas reales ni datos de pacientes reales.
-
-#### Scenario: Seed repetible
-
-- **WHEN** se ejecuta el seed dos veces con la misma base
-- **THEN** no se duplican usuarios y las credenciales ficticias permiten login
+- **WHEN** un usuario `recepcion` o `administracion` solicita un recurso clínico
+- **THEN** el sistema responde `403` y no ejecuta la operación

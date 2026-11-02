@@ -149,7 +149,7 @@ export class AuthService {
         message: 'usuario inactivo',
       });
     }
-    return this.view(usuario, this.usuarios.rolesDe(usuario.id));
+    return this.view(usuario, this.usuarios.rolesDe(usuario.id), usuario.profesional_id ?? null);
   }
 
   private rotar(
@@ -227,7 +227,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.config.accessTokenTtlSeconds,
-      user: this.view(usuario, roles),
+      user: this.view(usuario, roles, usuario.profesional_id ?? null),
     };
   }
 
@@ -272,15 +272,20 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.config.accessTokenTtlSeconds,
-      user: this.view(usuario, roles),
+      user: this.view(usuario, roles, usuario.profesional_id ?? null),
     };
   }
 
-  private view(usuario: UsuarioRow, roles: readonly string[]): AuthUserView {
+  private view(
+    usuario: UsuarioRow,
+    roles: readonly string[],
+    profesionalId: string | null,
+  ): AuthUserView {
     return {
       id: usuario.id,
       email: usuario.email,
       roles: roles as AuthUserView['roles'],
+      profesional_id: profesionalId,
     };
   }
 }

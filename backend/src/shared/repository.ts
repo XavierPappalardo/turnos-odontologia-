@@ -4,6 +4,7 @@
  */
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { applyMigration, runMigrations } from './migrations.js';
+import { EventoInmutableError } from './errors.js';
 
 export type { DatabaseSync };
 export { runMigrations, MIGRATIONS } from './migrations.js';
@@ -179,5 +180,45 @@ export class UnitOfWork {
       }
       throw err;
     }
+  }
+}
+
+/**
+ * Repositorio para tablas append-only (solo `created_at`, sin `updated_at`).
+ * `insert` sella solo `created_at`. `update`/`softDelete` lanzan
+ * `EventoInmutableError` (tres capas de defensa: sin endpoint de edición,
+ * repositorio lo prohíbe, trigger de SQLite aborta cualquier UPDATE/DELETE).
+ */
+export class AppendOnlyRepository<T extends object> extends BaseRepository<T> {
+  insert(row: Omit<T, 'created_at' | 'updated_at'> & { id: string }): void {
+    const full: Record<string, SQLInputValue> = {
+      ...(row as unknown as Record<string, SQLInputValue>),
+      created_at: nowIsoUtc(),
+    };
+    const cols = Object.keys(full);
+    const placeholders = cols.map(() => '?').join(', ');
+    const stmt = this.db.prepare(
+      `INSERT INTO ${this.table} (${cols.join(', ')}) VALUES (${placeholders})`,
+    );
+    stmt.run(...cols.map((c) => full[c] as SQLInputValue));
+  }
+
+  update(
+    _id: string,
+    _patch?: Partial<Omit<T, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>>,
+  ): never {
+    throw new EventoInmutableError({
+      status: 409,
+      code: 'evento_inmutable',
+      message: `${this.table} es insert-only`,
+    });
+  }
+
+  softDelete(_id: string): never {
+    throw new EventoInmutableError({
+      status: 409,
+      code: 'evento_inmutable',
+      message: `${this.table} es insert-only`,
+    });
   }
 }

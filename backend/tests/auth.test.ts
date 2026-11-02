@@ -142,6 +142,26 @@ describe('GET /api/auth/me', () => {
       ).status,
     ).toBe(401);
   });
+
+  it('Dado usuario con profesional_id vinculado Cuando me Entonces devuelve profesional_id', async () => {
+    const app = createApp(db, APP_CONFIG);
+    const loginRes = await login(app, 'profesional@example.test');
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('authorization', `Bearer ${loginRes.body.access_token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.user.profesional_id).toBe('prof-seed-0001');
+  });
+
+  it('Dado usuario sin profesional_id Cuando me Entonces profesional_id es null', async () => {
+    const app = createApp(db, APP_CONFIG);
+    const loginRes = await login(app, 'recepcion@example.test');
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('authorization', `Bearer ${loginRes.body.access_token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.user.profesional_id).toBeNull();
+  });
 });
 
 describe('POST /api/auth/refresh', () => {

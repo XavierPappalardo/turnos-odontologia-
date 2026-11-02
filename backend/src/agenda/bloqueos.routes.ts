@@ -93,7 +93,7 @@ export function bloqueosRouter(
   config: AuthConfig,
 ): Router {
   const router = Router();
-  const autenticado = requireAuth(config.jwtSecret);
+  const autenticado = requireAuth(config.jwtSecret, db);
 
   router.post(
     '/bloqueos',

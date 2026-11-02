@@ -12,6 +12,7 @@ export interface UsuarioRow {
   email: string;
   password_hash: string;
   activo: number;
+  profesional_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -59,6 +60,7 @@ export class UsuarioRepository extends BaseRepository<UsuarioRow> {
     email: string;
     passwordHash: string;
     roles: readonly Rol[];
+    profesionalId?: string | null;
   }): void {
     const uow = new UnitOfWork(this.db);
     uow.runInTransaction(() => {
@@ -67,6 +69,7 @@ export class UsuarioRepository extends BaseRepository<UsuarioRow> {
         email: args.email,
         password_hash: args.passwordHash,
         activo: 1,
+        profesional_id: args.profesionalId ?? null,
         deleted_at: null,
       });
       const insertRol = this.db.prepare(

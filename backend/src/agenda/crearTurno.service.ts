@@ -7,6 +7,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { puedeCrearTurno, type Rol } from '../shared/auth.js';
 import { CrearTurnoError } from '../shared/errors.js';
+import { normalizarIsoUtc } from '../shared/fechas.js';
 import { UnitOfWork } from '../shared/repository.js';
 import type {
   PacienteId,
@@ -41,26 +42,15 @@ export interface TurnoCreado {
 
 /** Normaliza a ISO 8601 UTC de ancho fijo; rechaza formatos ambiguos (400). */
 export function normalizarUtc(valor: string, campo: string): string {
-  const ms = Date.parse(valor);
-  if (Number.isNaN(ms)) {
+  const normalizado = normalizarIsoUtc(valor);
+  if (normalizado === undefined) {
     throw new CrearTurnoError({
       status: 400,
       code: 'validacion',
       message: `formato de fecha no UTC en ${campo}`,
     });
   }
-  const d = new Date(ms);
-  const iso = d.toISOString();
-  // Exigir entrada con zona horaria explícita (Z o ±hh:mm) para evitar
-  // comparaciones lexicográficas ambiguas (design D2 trade-off).
-  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(valor.trim())) {
-    throw new CrearTurnoError({
-      status: 400,
-      code: 'validacion',
-      message: `formato de fecha no UTC en ${campo}`,
-    });
-  }
-  return iso;
+  return normalizado;
 }
 
 function exigirFk(

@@ -9,6 +9,13 @@ import { describe, expect, it } from 'vitest';
 import { createErrorHandler } from '../src/shared/error-handler.js';
 import { AppError, CrearTurnoError } from '../src/shared/errors.js';
 import { createLogger, type LogLevel } from '../src/shared/logger.js';
+import {
+  AccesoHcError,
+  EnmiendaDuplicadaError,
+  EventoInmutableError,
+  EventoNoEncontradoError,
+  ValidacionClinicaError,
+} from '../src/shared/errors.js';
 
 function buildApp(handler: RequestHandler): { app: express.Express; lines: string[] } {
   const lines: string[] = [];
@@ -68,7 +75,90 @@ describe('middleware centralizado de errores', () => {
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: 'conflicto', eje: 'profesional' });
   });
+});
 
+describe('errores clínicos de C-09 (sin PHI en toBody)', () => {
+  it('Dado ValidacionClinicaError Cuando inspecciono Entonces status 400 y sin PHI', () => {
+    const err = new ValidacionClinicaError({
+      status: 400,
+      code: 'validacion_clinica',
+      message: 'pieza 16 con superficie I invalida',
+    });
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.status).toBe(400);
+    expect(err.code).toBe('validacion_clinica');
+    expect(err.toBody()).toEqual({ error: 'validacion_clinica' });
+  });
+
+  it('Dado AccesoHcError con motivo Cuando inspecciono Entonces status 403 y sin PHI', () => {
+    const err = new AccesoHcError({
+      status: 403,
+      code: 'sin_vinculo',
+      message: 'usuario sin profesional_id vinculado',
+      motivo: 'sin_vinculo',
+    });
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.status).toBe(403);
+    expect(err.code).toBe('sin_vinculo');
+    expect(err.motivo).toBe('sin_vinculo');
+    expect(err.toBody()).toEqual({ error: 'sin_vinculo', motivo: 'sin_vinculo' });
+  });
+
+  it('Dado EnmiendaDuplicadaError Cuando inspecciono Entonces status 409 y sin PHI', () => {
+    const err = new EnmiendaDuplicadaError({
+      status: 409,
+      code: 'enmienda_duplicada',
+      message: 'el evento ya fue enmendado',
+    });
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.status).toBe(409);
+    expect(err.code).toBe('enmienda_duplicada');
+    expect(err.toBody()).toEqual({ error: 'enmienda_duplicada' });
+  });
+
+  it('Dado EventoNoEncontradoError Cuando inspecciono Entonces status 404 y sin PHI', () => {
+    const err = new EventoNoEncontradoError({
+      status: 404,
+      code: 'evento_no_encontrado',
+      message: 'evento no pertenece al paciente',
+    });
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.status).toBe(404);
+    expect(err.code).toBe('evento_no_encontrado');
+    expect(err.toBody()).toEqual({ error: 'evento_no_encontrado' });
+  });
+
+  it('Dado EventoInmutableError Cuando inspecciono Entonces status 409 y sin PHI', () => {
+    const err = new EventoInmutableError({
+      status: 409,
+      code: 'evento_inmutable',
+      message: 'tabla insert-only',
+    });
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.status).toBe(409);
+    expect(err.code).toBe('evento_inmutable');
+    expect(err.toBody()).toEqual({ error: 'evento_inmutable' });
+  });
+
+  it('Dado errores clínicos Cuando pasan por el middleware Entonces cuerpos sin PHI ni nombre ni detalle', async () => {
+    const { app, lines } = buildApp((_req, _res, next) =>
+      next(
+        new ValidacionClinicaError({
+          status: 400,
+          code: 'validacion_clinica',
+          message: 'detalle=Paciente Ficticio Ejemplo nombre=Ficticio',
+        }),
+      ),
+    );
+    const res = await request(app).get('/boom');
+    expect(res.status).toBe(400);
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toMatch(/Ficticio|Paciente|nombre|detalle/);
+    expect(lines.join('\n')).not.toMatch(/Ficticio|Paciente/);
+  });
+});
+
+describe('middleware centralizado de errores', () => {
   it('Dado error inesperado Cuando falla Entonces 500 {"error":"interno"} sin stack/SQL/rutas/PHI', async () => {
     const { app, lines } = buildApp((_req, _res, next) =>
       next(

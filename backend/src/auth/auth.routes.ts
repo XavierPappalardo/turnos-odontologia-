@@ -102,7 +102,7 @@ export function authRouter(db: DatabaseSync, config: AuthConfig): Router {
     res.status(204).end();
   });
 
-  router.get('/auth/me', requireAuth(config.jwtSecret), (req: Request, res: Response) => {
+  router.get('/auth/me', requireAuth(config.jwtSecret, db), (req: Request, res: Response) => {
     const auth = getAuth(res);
     const user = service.me(auth.userId);
     res.status(200).json({ user });

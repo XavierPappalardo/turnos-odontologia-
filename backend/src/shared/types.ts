@@ -17,6 +17,32 @@ export type PrestacionId = Brand<string, 'PrestacionId'>;
 export type BloqueoId = Brand<string, 'BloqueoId'>;
 export type UsuarioId = Brand<string, 'UsuarioId'>;
 
+/** Identificadores de entidades clínicas (C-09). */
+export type HcEventoId = Brand<string, 'HcEventoId'>;
+export type OdontogramaEventoId = Brand<string, 'OdontogramaEventoId'>;
+export type DelegacionHcId = Brand<string, 'DelegacionHcId'>;
+
+/** Tipos de dominio clínico (C-09). */
+export type TipoEventoHc =
+  | 'consulta'
+  | 'nota'
+  | 'diagnostico'
+  | 'procedimiento';
+
+export type SuperficieFdi = 'M' | 'D' | 'V' | 'L' | 'O' | 'I';
+
+export type HallazgoOdontograma =
+  | 'sano'
+  | 'caries'
+  | 'obturado'
+  | 'ausente'
+  | 'corona'
+  | 'endodoncia'
+  | 'implante'
+  | 'extraccion_indicada'
+  | 'sellante'
+  | 'fractura';
+
 export type TurnoEstado =
   | 'reservado'
   | 'confirmado'

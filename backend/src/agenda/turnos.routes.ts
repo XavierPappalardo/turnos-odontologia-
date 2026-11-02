@@ -20,7 +20,7 @@ function rolEfectivo(auth: AuthContext): Rol | undefined {
 
 export function turnosRouter(db: DatabaseSync, config: AuthConfig): Router {
   const router = Router();
-  const autenticado = requireAuth(config.jwtSecret);
+  const autenticado = requireAuth(config.jwtSecret, db);
 
   router.post(
     '/turnos',

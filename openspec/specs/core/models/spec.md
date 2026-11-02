@@ -1,80 +1,48 @@
-# Spec — core/models
+# Spec Delta — core/models
 
-## Purpose
-
-Define las entidades base del dominio odontológico con auditoría, restricciones de integridad y repositorios, incluyendo reglas monetarias en centavos ARS y porcentajes enteros, para sostener agenda, caja y obras sociales sin datos reales.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Entidades core y auditoría
 
-El sistema SHALL persistir `profesional`, `sillon`, `paciente`, `prestacion`, `obra_social_plan`, `turno`, `bloqueo` y `pago`, todas con `created_at`/`updated_at` y soft-delete `deleted_at`; `paciente` y `prestacion` SHALL además exponer `activo` (0/1).
+El sistema SHALL persistir `profesional`, `sillon`, `paciente`, `prestacion`, `obra_social_plan`, `turno`, `bloqueo` y `pago`, todas con `created_at`/`updated_at` y soft-delete `deleted_at`; `paciente` y `prestacion` SHALL además exponer `activo` (0/1) y `paciente` SHALL exponer `fecha_nacimiento` y `alergias`, ambas nullable.
 
 #### Scenario: Esquema completo tras migraciones
 
-- **WHEN** se abre una base con `openDatabase` (migraciones 001→005)
-- **THEN** existen las ocho tablas core con sus columnas de auditoría
+- **WHEN** se abre una base con `openDatabase` (migraciones 001→008)
+- **THEN** existen las ocho tablas core con sus columnas de auditoría y `paciente` tiene las columnas `fecha_nacimiento` y `alergias`
 
-### Requirement: Integridad de turnos
+#### Scenario: Paciente sin datos clínicos base
 
-El sistema SHALL rechazar a nivel SQLite un turno con `fin <= inicio` y SHALL mantener las FKs de profesional, sillón, paciente y prestación.
+- **WHEN** se inserta un paciente ficticio sin `fecha_nacimiento` ni `alergias`
+- **THEN** la fila se persiste con ambas columnas en `NULL`
 
-#### Scenario: Turno con fin anterior a inicio
+## ADDED Requirements
 
-- **WHEN** se inserta un turno con `fin <= inicio`
-- **THEN** SQLite rechaza la escritura por CHECK
+### Requirement: Actualización de datos clínicos base del paciente
 
-### Requirement: Prestaciones con duración positiva
+El sistema SHALL exponer `PATCH /api/pacientes/:id` que acepta únicamente `fecha_nacimiento` (fecha `YYYY-MM-DD` no futura, nullable) y `alergias` (texto libre nullable, máximo 2000 caracteres); SHALL responder `400` ante otro campo o valor inválido y `404` si el paciente no existe o está eliminado.
 
-El sistema SHALL exigir `prestacion.duracion_min` entero mayor que cero.
+#### Scenario: Actualización parcial válida
 
-#### Scenario: Duración cero rechazada
+- **WHEN** se envía `PATCH /api/pacientes/:id` solo con `fecha_nacimiento` válida
+- **THEN** el sistema responde `200` con ese valor actualizado y conserva `alergias` sin cambios
 
-- **WHEN** se inserta una prestación con `duracion_min = 0`
-- **THEN** SQLite rechaza la escritura
+#### Scenario: Fecha de nacimiento futura
 
-### Requirement: Cobertura de obra social exacta
+- **WHEN** se envía una `fecha_nacimiento` posterior a la fecha actual
+- **THEN** el sistema responde `400` y no modifica el paciente
 
-El sistema SHALL modelar `obra_social_plan.cobertura_pct` como entero entre 0 y 100 inclusive, rechazando fracciones y valores fuera de rango. `(obra_social, plan)` SHALL ser único.
+#### Scenario: Campo fuera de allowlist
 
-#### Scenario: Cobertura válida en bordes
+- **WHEN** se envía `PATCH /api/pacientes/:id` con `nombre` junto a un campo permitido
+- **THEN** el sistema responde `400` y no modifica ningún campo
 
-- **WHEN** se inserta `cobertura_pct` 0 o 100
-- **THEN** la fila se persiste
+#### Scenario: Alergias demasiado largas
 
-#### Scenario: Cobertura inválida
+- **WHEN** se envían `alergias` de 2001 caracteres
+- **THEN** el sistema responde `400` y no modifica el paciente
 
-- **WHEN** se inserta `cobertura_pct` -1, 101 o 50.5
-- **THEN** SQLite rechaza la escritura
+#### Scenario: Paciente inexistente o eliminado
 
-### Requirement: Montos en centavos ARS
-
-El sistema SHALL modelar `pago.monto_centavos` como entero no negativo y `moneda = 'ARS'`; SHALL aceptar solo los medios `efectivo`, `tarjeta`, `transferencia`, `mercadopago`, `obra_social`, y los estados `pendiente`, `cobrado`, `anulado`. La conversión a decimales ocurre únicamente en presentación.
-
-#### Scenario: Monto negativo, fraccionario o moneda distinta
-
-- **WHEN** se inserta un pago con monto negativo, `10.5`, moneda `USD` o medio desconocido
-- **THEN** SQLite rechaza la escritura
-
-#### Scenario: Total cobrado por turno
-
-- **WHEN** un turno tiene pagos `cobrado` y `pendiente`
-- **THEN** `PagoRepository.totalCobradoPorTurno` suma solo los `cobrado`, en centavos
-
-### Requirement: Repositorios y unidad de trabajo
-
-El sistema SHALL acceder a datos solo vía `BaseRepository<T>`/`UnitOfWork`; SHALL ofrecer `insert`/`insertOrIgnore`, `AuditMixin` (`auditStamp`, `softDeleteStamp`) y repositorios `ObraSocialPlanRepository` y `PagoRepository`.
-
-#### Scenario: Seed idempotente
-
-- **WHEN** se ejecuta `seedMinimo` dos veces
-- **THEN** cada entidad ficticia queda con una sola fila
-
-### Requirement: Datos ficticios
-
-El sistema SHALL usar exclusivamente datos ficticios en seeds y fixtures; SHALL NOT incluir nombres, DNI, teléfonos ni historias clínicas reales.
-
-#### Scenario: Seed sin datos reales
-
-- **WHEN** se inspecciona el seed
-- **THEN** nombres, matrícula y teléfono contienen marcadores ficticios y el paciente referencia el plan de obra social ficticio
+- **WHEN** `administracion` envía `PATCH /api/pacientes/:id` con un `id` inexistente o con `deleted_at` no nulo
+- **THEN** el sistema responde `404` y no crea ni revive pacientes

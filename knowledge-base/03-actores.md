@@ -41,9 +41,11 @@ Todos los datos de personas en este documento son ficticios. No se incluyen dato
 |---|---|---|---|---|
 | Reservar / reprogramar propio turno | Sí | Sí | Propios | Sí |
 | Bloqueos y sobreturnos | No | Sí | No | Sí |
-| HC / odontograma | Propia (lectura, fase 2) | No edita | Sus pacientes | Lectura |
+| HC / odontograma | Propia (lectura, fase 2) | No accede | Sus pacientes (o delegación vigente) | No accede |
 | Cobro y cierre caja | Paga | Cobra/cierra | No | Supervisa |
 | Liquidar OS / comisiones | No | Opera | Vista propia | Configura |
 | Reportes y configuración | No | Operativos | Propios | Total |
+
+> **Nota sobre delegación temporal:** La delegación temporal es un acto administrativo auditado (C-09) que habilita lectura/escritura de la HC de un paciente a otro profesional durante una ventana con vencimiento. No otorga acceso de lectura a recepción ni a administración.
 
 Seguridad y cumplimiento (Ley 26.529, Ley 25.326, HCE): "No evidenciado" en ningún competidor local (Discovery punto 10 — 2026-10-06); el control de acceso, cifrado, backup y consentimientos se diseñan desde el día 1 con asesoría legal.

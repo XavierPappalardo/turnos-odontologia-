@@ -24,6 +24,8 @@ export interface PacienteRow extends AuditRow {
   telefono_whatsapp: string | null;
   obra_social_plan_id: string | null;
   activo: number;
+  fecha_nacimiento: string | null;
+  alergias: string | null;
 }
 
 export interface PrestacionRow extends AuditRow {

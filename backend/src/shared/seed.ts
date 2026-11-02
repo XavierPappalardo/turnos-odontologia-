@@ -75,6 +75,8 @@ export function seedMinimo(db: DatabaseSync): void {
       telefono_whatsapp: '+54 9 11 0000-0000',
       obra_social_plan_id: SEED_IDS.obraSocialPlan,
       activo: 1,
+      fecha_nacimiento: '1990-05-20',
+      alergias: 'Penicilina ficticia',
       deleted_at: null,
     });
   });
@@ -84,6 +86,7 @@ export interface SeedUsuario {
   id: UsuarioId;
   email: string;
   roles: readonly Rol[];
+  profesionalId?: string | null;
 }
 
 /** Usuarios ficticios de los tres roles (C-03). Requiere una contraseña de seed. */
@@ -104,6 +107,7 @@ export function seedUsuarios(db: DatabaseSync, password: string): void {
       id: SEED_IDS.usuarioProfesional as UsuarioId,
       email: 'profesional@example.test',
       roles: ['profesional'],
+      profesionalId: SEED_IDS.profesional,
     },
   ];
 
@@ -114,6 +118,7 @@ export function seedUsuarios(db: DatabaseSync, password: string): void {
       email: usuario.email,
       passwordHash: hashPassword(password),
       roles: usuario.roles,
+      profesionalId: usuario.profesionalId ?? null,
     });
   }
 }

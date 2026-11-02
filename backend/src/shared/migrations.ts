@@ -193,6 +193,114 @@ CREATE INDEX IF NOT EXISTS idx_recordatorio_estado_fecha ON recordatorio(estado,
 CREATE INDEX IF NOT EXISTS idx_recordatorio_turno_tipo ON recordatorio(turno_id, tipo);
 `;
 
+/** 008 — historia clínica, odontograma, delegaciones y auditoría PHI (C-09). */
+export const MIGRATION_008_CLINICA = `
+ALTER TABLE paciente ADD COLUMN fecha_nacimiento TEXT;
+ALTER TABLE paciente ADD COLUMN alergias TEXT;
+ALTER TABLE usuario ADD COLUMN profesional_id TEXT REFERENCES profesional(id);
+CREATE UNIQUE INDEX idx_usuario_profesional
+  ON usuario(profesional_id) WHERE profesional_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS hc_evento (
+  id TEXT PRIMARY KEY,
+  paciente_id TEXT NOT NULL REFERENCES paciente(id),
+  turno_id TEXT REFERENCES turno(id),
+  tipo TEXT NOT NULL CHECK (tipo IN ('consulta','nota','diagnostico','procedimiento')),
+  detalle TEXT NOT NULL CHECK (length(detalle) BETWEEN 1 AND 5000),
+  ocurrido_en TEXT NOT NULL,
+  actor_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  profesional_id TEXT NOT NULL REFERENCES profesional(id),
+  enmienda_de TEXT REFERENCES hc_evento(id),
+  motivo_enmienda TEXT,
+  created_at TEXT NOT NULL,
+  CHECK ((enmienda_de IS NULL AND motivo_enmienda IS NULL)
+      OR (enmienda_de IS NOT NULL AND length(trim(motivo_enmienda)) > 0)),
+  CHECK (enmienda_de IS NULL OR enmienda_de <> id)
+);
+CREATE UNIQUE INDEX idx_hc_evento_enmienda
+  ON hc_evento(enmienda_de) WHERE enmienda_de IS NOT NULL;
+CREATE INDEX idx_hc_evento_paciente ON hc_evento(paciente_id, ocurrido_en, id);
+CREATE INDEX idx_hc_evento_turno ON hc_evento(turno_id);
+
+CREATE TABLE IF NOT EXISTS odontograma_evento (
+  id TEXT PRIMARY KEY,
+  paciente_id TEXT NOT NULL REFERENCES paciente(id),
+  turno_id TEXT REFERENCES turno(id),
+  pieza_fdi INTEGER NOT NULL CHECK (
+    pieza_fdi % 10 BETWEEN 1 AND 8
+    AND (pieza_fdi BETWEEN 11 AND 48 OR pieza_fdi BETWEEN 51 AND 85)
+  ),
+  superficie TEXT NOT NULL CHECK (superficie IN ('M','D','V','L','O','I')),
+  hallazgo TEXT NOT NULL CHECK (hallazgo IN (
+    'sano','caries','obturado','ausente','corona','endodoncia',
+    'implante','extraccion_indicada','sellante','fractura'
+  )),
+  ocurrido_en TEXT NOT NULL,
+  actor_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  profesional_id TEXT NOT NULL REFERENCES profesional(id),
+  enmienda_de TEXT REFERENCES odontograma_evento(id),
+  motivo_enmienda TEXT,
+  created_at TEXT NOT NULL,
+  CHECK ((enmienda_de IS NULL AND motivo_enmienda IS NULL)
+      OR (enmienda_de IS NOT NULL AND length(trim(motivo_enmienda)) > 0)),
+  CHECK (enmienda_de IS NULL OR enmienda_de <> id)
+);
+CREATE UNIQUE INDEX idx_odontograma_evento_enmienda
+  ON odontograma_evento(enmienda_de) WHERE enmienda_de IS NOT NULL;
+CREATE INDEX idx_odontograma_paciente
+  ON odontograma_evento(paciente_id, pieza_fdi, superficie, ocurrido_en, id);
+
+CREATE TABLE IF NOT EXISTS delegacion_hc (
+  id TEXT PRIMARY KEY,
+  paciente_id TEXT NOT NULL REFERENCES paciente(id),
+  profesional_id TEXT NOT NULL REFERENCES profesional(id),
+  otorgada_por_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  desde TEXT NOT NULL,
+  hasta TEXT NOT NULL,
+  motivo TEXT NOT NULL CHECK (length(trim(motivo)) > 0),
+  revocada_en TEXT,
+  created_at TEXT NOT NULL,
+  CHECK (hasta > desde)
+);
+CREATE INDEX idx_delegacion_hc_lookup
+  ON delegacion_hc(paciente_id, profesional_id, hasta);
+
+CREATE TABLE IF NOT EXISTS auditoria_phi (
+  id TEXT PRIMARY KEY,
+  ocurrido_en TEXT NOT NULL,
+  usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  rol TEXT NOT NULL CHECK (rol IN ('recepcion','profesional','administracion')),
+  paciente_id TEXT,
+  recurso TEXT NOT NULL CHECK (recurso IN (
+    'historia_clinica','odontograma','delegacion_hc','paciente'
+  )),
+  recurso_id TEXT,
+  accion TEXT NOT NULL CHECK (accion IN ('leer','crear','editar','exportar','imprimir')),
+  resultado TEXT NOT NULL CHECK (resultado IN ('permitido','denegado')),
+  motivo TEXT CHECK (motivo IS NULL OR motivo IN (
+    'sin_vinculo','rol_no_autorizado','delegacion_vencida'
+  )),
+  ip TEXT,
+  session_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_auditoria_phi_paciente ON auditoria_phi(paciente_id, ocurrido_en);
+CREATE INDEX idx_auditoria_phi_usuario ON auditoria_phi(usuario_id, ocurrido_en);
+
+CREATE TRIGGER hc_evento_no_update BEFORE UPDATE ON hc_evento
+BEGIN SELECT RAISE(ABORT, 'hc_evento es insert-only'); END;
+CREATE TRIGGER hc_evento_no_delete BEFORE DELETE ON hc_evento
+BEGIN SELECT RAISE(ABORT, 'hc_evento es insert-only'); END;
+CREATE TRIGGER odontograma_evento_no_update BEFORE UPDATE ON odontograma_evento
+BEGIN SELECT RAISE(ABORT, 'odontograma_evento es insert-only'); END;
+CREATE TRIGGER odontograma_evento_no_delete BEFORE DELETE ON odontograma_evento
+BEGIN SELECT RAISE(ABORT, 'odontograma_evento es insert-only'); END;
+CREATE TRIGGER auditoria_phi_no_update BEFORE UPDATE ON auditoria_phi
+BEGIN SELECT RAISE(ABORT, 'auditoria_phi es insert-only'); END;
+CREATE TRIGGER auditoria_phi_no_delete BEFORE DELETE ON auditoria_phi
+BEGIN SELECT RAISE(ABORT, 'auditoria_phi es insert-only'); END;
+`;
+
 /** Una migración versionada: id ascendente + SQL idempotente (`IF NOT EXISTS`). */
 export interface Migration {
   readonly id: string;
@@ -211,6 +319,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '005', sql: MIGRATION_005_AUTH_TOKENS },
   { id: '006', sql: MIGRATION_006_TURNO_TOKEN },
   { id: '007', sql: MIGRATION_007_RECORDATORIO },
+  { id: '008', sql: MIGRATION_008_CLINICA },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

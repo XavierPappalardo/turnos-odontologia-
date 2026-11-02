@@ -289,13 +289,13 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ## FASE 3 — Clínica (Historia, Presupuestos, Caja)
 
 ### [C-09] `historia-clinica-odontograma`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-01-c-09-historia-clinica-odontograma/`)
 - **Scope**: Historia clínica + odontograma FDI (F-05)
   - Estructura para HC: registro por turno/paciente, notas, eventos
   - Odontograma FDI (estructura básica, estados por pieza)
   - Endpoints: CRUD HC, obtener por paciente/turno
   - Permisos por rol (profesional/recepción/admin)
-  - Migración 006: tablas HC/odontograma
+  - Migración 008: tablas HC/odontograma, auditoría PHI, delegaciones
   - Tests: creación/lectura HC, validación de permisos
 - **Dependencias**: C-03
 - **Governance**: ALTO
@@ -314,7 +314,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Estados de presupuesto/plan, seguimiento hasta cobro
   - Endpoints CRUD + conversión presupuesto→plan/turno
   - Cálculos con precios en ARS, totales
-  - Migración 007: tablas presupuestos/planes
+  - Migración 009: tablas presupuestos/planes
   - Tests: cálculo, estados, seguimiento
 - **Dependencias**: C-09
 - **Governance**: MEDIO
@@ -334,7 +334,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Integración Mercado Pago (estructura sin credenciales reales; referencias comerciales)
   - Gestión de deudas/saldos por turno/paciente
   - Endpoints: registrar pago, cerrar caja, ver deudas
-  - Migración 008: ajustes caja/pagos
+  - Migración 010: ajustes caja/pagos
   - Tests: cobro multimedio, cierre diario, trazabilidad
 - **Dependencias**: C-10
 - **Governance**: ALTO
@@ -355,7 +355,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Modelos `ObraSocialPlan` (ya definido) + lógica de cobertura por plan/tratamiento
   - Cálculo de cobertura y saldo a cobrar (RN-07)
   - Liquidación de reintegros (estructura)
-  - Migración 009: ajustes OS/liquidación
+  - Migración 011: ajustes OS/liquidación
   - Tests: cálculo cobertura, saldo, reintegros
 - **Dependencias**: C-03
 - **Governance**: ALTO
@@ -375,7 +375,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Vista previa antes de confirmar liquidación
   - Cálculo basado en cobros/liquidaciones
   - Endpoints/admin para generar liquidación por profesional
-  - Migración 010: tablas comisiones/liquidaciones
+  - Migración 012: tablas comisiones/liquidaciones
   - Tests: cálculo por tratamiento, vista previa, confirmación
 - **Dependencias**: C-12
 - **Governance**: MEDIO
@@ -408,7 +408,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   - Configuración/catalogo con precios en ARS
   - Validaciones monetarias (centavos), moneda ARS
   - Exposición pública de precios donde aplique (reserva online)
-  - Migración 011: ajustes catálogo/precios
+  - Migración 013: ajustes catálogo/precios
   - Tests: validación ARS, formato, consistencia
 - **Dependencias**: C-04, C-10, C-11
 - **Governance**: BAJO
