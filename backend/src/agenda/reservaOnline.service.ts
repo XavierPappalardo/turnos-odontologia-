@@ -93,16 +93,20 @@ export function reservarTurnoOnline(
       exigirFk(db, 'prestacion', input.prestacionId, 'prestacion_id', false);
     }
 
-    // RN-06: anticipación mínima configurable. inicio >= ahora + ventana.
+    // RN-06: anticipación mínima configurable. Solo aplica a turnos futuros:
+    // una fecha ya pasada no tiene ventana de anticipación que respetar.
     const ahora = new Date();
-    const limiteMinimo = new Date(ahora.getTime() + anticipacionMinSegundos * 1000);
-    if (inicio < limiteMinimo.toISOString()) {
-      throw new CrearTurnoError({
-        status: 400,
-        code: 'validacion',
-        message: `anticipación mínima no respetada (${anticipacionMinSegundos}s)`,
-        eje: 'anticipacion',
-      });
+    const inicioDate = new Date(inicio);
+    if (inicioDate >= ahora) {
+      const limiteMinimo = new Date(ahora.getTime() + anticipacionMinSegundos * 1000);
+      if (inicio < limiteMinimo.toISOString()) {
+        throw new CrearTurnoError({
+          status: 400,
+          code: 'validacion',
+          message: `anticipación mínima no respetada (${anticipacionMinSegundos}s)`,
+          eje: 'anticipacion',
+        });
+      }
     }
 
     const profesionalId = input.profesionalId as ProfesionalId;

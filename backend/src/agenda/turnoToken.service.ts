@@ -160,12 +160,13 @@ export function ejecutarAccionTurno(
 
     // 7. Validaciones específicas por acción.
     if (input.accion === 'cancelar') {
-      // RN-06: anticipación mínima para cancelación.
+      // RN-06: anticipación mínima para cancelación. Solo aplica a turnos futuros;
+      // un turno cuya fecha ya pasó no tiene ventana de anticipación que respetar.
       const inicioTurno = new Date(turnoActual.inicio);
       const diferenciaSegundos = (
         inicioTurno.getTime() - ahora.getTime()
       ) / 1000;
-      if (diferenciaSegundos < config.reservaOnline.anticipacionMinSegundos) {
+      if (diferenciaSegundos > 0 && diferenciaSegundos < config.reservaOnline.anticipacionMinSegundos) {
         throw new CrearTurnoError({
           status: 400,
           code: 'validacion',

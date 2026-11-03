@@ -104,7 +104,7 @@ describe('MIGRATION_008_CLINICA', () => {
   it('Dado MIGRATIONS Cuando inspecciono Entonces 008 está registrada al final', () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(ids).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009',
     ]);
   });
 });
