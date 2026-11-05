@@ -105,6 +105,26 @@ export class PresupuestoRepository extends BaseRepository<PresupuestoRow> {
     return stmt.all(pacienteId) as unknown as PresupuestoRow[];
   }
 
+  /** Conceptos por turno (C-11): para application de cobros y deuda del turno. */
+  listarPorTurno(turnoId: string): PresupuestoRow[] {
+    const stmt = this.db.prepare(
+      `SELECT * FROM presupuesto
+       WHERE turno_id = ? AND deleted_at IS NULL
+       ORDER BY created_at ASC`,
+    );
+    return stmt.all(turnoId) as unknown as PresupuestoRow[];
+  }
+
+  /** Conceptos aceptados vigentes del paciente (C-11, deuda por paciente). */
+  listarAceptadosPorPaciente(pacienteId: string): PresupuestoRow[] {
+    const stmt = this.db.prepare(
+      `SELECT * FROM presupuesto
+       WHERE paciente_id = ? AND estado = 'aceptado' AND deleted_at IS NULL
+       ORDER BY created_at ASC`,
+    );
+    return stmt.all(pacienteId) as unknown as PresupuestoRow[];
+  }
+
   updateEstado(id: string, estado: string): boolean {
     const result = this.db
       .prepare(

@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from '../src/shared/config.js';
+import { fechaContable } from '../src/shared/fechas.js';
 
 const JWT_SECRET = 'test-secret-con-mas-de-32-caracteres-0001';
 const base = {
@@ -98,5 +99,75 @@ describe('loadConfig', () => {
     expect(() =>
       loadConfig({ ...base, LOGIN_RATE_LIMIT_WINDOW_SECONDS: '0' }),
     ).toThrowError(/LOGIN_RATE_LIMIT_WINDOW_SECONDS/);
+  });
+
+  // ── C-11: caja y Mercado Pago ────────────────────────────────────────────
+
+  it('Dado env sin CAJA_ZONA_HORARIA Cuando cargo config Entonces usa el default America/Buenos_Aires sin fallar y la fecha contable se calcula con esa zona', () => {
+    const cfg = loadConfig(base);
+    expect(cfg.caja.zonaHoraria).toBe('America/Buenos_Aires');
+    // La zona default es operativa: computa el día local (diseño D11).
+    expect(fechaContable('2026-06-01T15:00:00.000Z', cfg.caja.zonaHoraria)).toBe(
+      '2026-06-01',
+    );
+  });
+
+  it('Dado un alias IANA de la misma zona Cuando cargo config Entonces se acepta tal cual (validación por construcción de Intl)', () => {
+    const cfg = loadConfig({
+      ...base,
+      CAJA_ZONA_HORARIA: 'America/Argentina/Buenos_Aires',
+    });
+    expect(cfg.caja.zonaHoraria).toBe('America/Argentina/Buenos_Aires');
+  });
+
+  it('Dado CAJA_ZONA_HORARIA inexistente Cuando cargo config Entonces ConfigError nombra la variable (fail-fast, sin default silencioso)', () => {
+    expect(() =>
+      loadConfig({ ...base, CAJA_ZONA_HORARIA: 'Jupiter/Amaltea' }),
+    ).toThrowError(/CAJA_ZONA_HORARIA/);
+    try {
+      loadConfig({ ...base, CAJA_ZONA_HORARIA: 'Jupiter/Amaltea' });
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+      expect((err as ConfigError).variable).toBe('CAJA_ZONA_HORARIA');
+    }
+  });
+
+  it('Dado MP_ENV distinto de sandbox Cuando cargo config Entonces ConfigError (sandbox obligatorio, sin cobros reales)', () => {
+    expect(() => loadConfig({ ...base, MP_ENV: 'production' })).toThrowError(
+      /MP_ENV/,
+    );
+    try {
+      loadConfig({ ...base, MP_ENV: 'production' });
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+      expect((err as ConfigError).variable).toBe('MP_ENV');
+    }
+  });
+
+  it('Dado arranque sin variables MP Cuando cargo config Entonces la integración queda deshabilitada (habilitado false, credenciales null, ambiente sandbox por default)', () => {
+    const cfg = loadConfig(base);
+    expect(cfg.mercadopago.habilitado).toBe(false);
+    expect(cfg.mercadopago.ambiente).toBe('sandbox');
+    expect(cfg.mercadopago.token).toBeNull();
+    expect(cfg.mercadopago.webhookSecret).toBeNull();
+  });
+
+  it('Dado solo MP_ACCESS_TOKEN sin secreto de firma Cuando cargo config Entonces sigue deshabilitada (falta la mitad del par)', () => {
+    const cfg = loadConfig({
+      ...base,
+      MP_ACCESS_TOKEN: 'TEST-token-ejemplo-no-real',
+    });
+    expect(cfg.mercadopago.habilitado).toBe(false);
+    expect(cfg.mercadopago.webhookSecret).toBeNull();
+  });
+
+  it('Dado token de prueba + secreto de firma Cuando cargo config Entonces la integración queda habilitada a nivel config', () => {
+    const cfg = loadConfig({
+      ...base,
+      MP_ACCESS_TOKEN: 'TEST-token-ejemplo-no-real',
+      MP_WEBHOOK_SECRET: 'secreto-ejemplo-no-real-c11',
+    });
+    expect(cfg.mercadopago.habilitado).toBe(true);
+    expect(cfg.mercadopago.ambiente).toBe('sandbox');
   });
 });

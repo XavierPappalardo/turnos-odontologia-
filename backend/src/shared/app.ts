@@ -12,6 +12,10 @@ import { historiaClinicaRouter } from '../clinica/historiaClinica.routes.js';
 import { odontogramaRouter } from '../clinica/odontograma.routes.js';
 import { pacientesRouter } from '../clinica/pacientes.routes.js';
 import { presupuestosRouter } from '../clinica/presupuestos.routes.js';
+import { planesRouter } from '../obras-sociales/planes.routes.js';
+import { coberturasRouter } from '../obras-sociales/coberturas.routes.js';
+import { liquidacionesRouter } from '../obras-sociales/liquidaciones.routes.js';
+import { cajaRouter } from '../caja/caja.routes.js';
 import { errorHandler } from './error-handler.js';
 import { createLogger, defaultSink } from './logger.js';
 
@@ -37,6 +41,10 @@ export function createApp(db: DatabaseSync, config: AppConfig): Express {
   app.use('/api', odontogramaRouter(db));
   app.use('/api', pacientesRouter(db));
   app.use('/api', presupuestosRouter(db));
+  app.use('/api/obras-sociales', planesRouter(db, config));
+  app.use('/api/obras-sociales', coberturasRouter(db, config));
+  app.use('/api/obras-sociales', liquidacionesRouter(db, config));
+  app.use('/api', cajaRouter(db, config));
   app.use(errorHandler);
   return app;
 }

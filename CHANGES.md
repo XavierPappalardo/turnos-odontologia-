@@ -327,7 +327,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-11] `caja-cobros-multimedio-mercadopago`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-04-caja-cobros-multimedio-mercadopago/`)
 - **Scope**: Caja multimedio + Mercado Pago + cierre diario + gestión de deudas (F-07)
   - Modelo `Pago` extendido: medios (`efectivo`, `tarjeta`, `transferencia`, `mercadopago`, `obra_social`), estados (`pendiente`, `cobrado`, `anulado`)
   - Caja/cierre diario con trazabilidad (RN-09)
@@ -350,7 +350,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ## FASE 4 — Obra Social, Comisiones y Reportes
 
 ### [C-12] `obras-sociales-liquidacion`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-05-obras-sociales-liquidacion/`)
 - **Scope**: Obras sociales argentinas: cobertura por plan + liquidación (F-08)
   - Modelos `ObraSocialPlan` (ya definido) + lógica de cobertura por plan/tratamiento
   - Cálculo de cobertura y saldo a cobrar (RN-07)

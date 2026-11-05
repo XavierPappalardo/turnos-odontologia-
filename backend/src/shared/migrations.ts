@@ -5,6 +5,10 @@
  * 003 = turno + bloqueo (C-04).
  * 004 = completitud de core-models (C-02): obra social, pagos, auditoría.
  * 005 = refresh tokens + blacklist/rotación (C-03).
+ * 009 = presupuestos e ítems (C-10).
+ * 010 = caja: pago ampliado (aplicación, idempotencia, anulación) +
+ *        movimiento_caja (append-only) + cierre_caja (C-11).
+ * 011 = obras sociales: cobertura por turno, liquidación (cabecera/ítems/eventos) (C-12).
  * Montos: enteros en centavos (R2/R5), sin floats.
  */
 import type { DatabaseSync } from 'node:sqlite';
@@ -225,6 +229,130 @@ CREATE INDEX IF NOT EXISTS idx_presupuesto_estado ON presupuesto(estado);
 CREATE INDEX IF NOT EXISTS idx_item_presupuesto ON item_presupuesto(presupuesto_id);
 `;
 
+/**
+ * 010 — caja (C-11, design D1/D3/D4): recomposición de `pago` + tablas de caja.
+ * SQLite no admite ALTER de CHECK/FK → rebuild de `pago` (tabla nueva → copia de
+ * filas previas preservando id/turno/montos/medios/estados/auditoría →
+ * DROP/RENAME → recreación de índices). `turno_id` pasa a nullable, se suma
+ * `presupuesto_id` FK con CHECK de aplicación obligatoria, `clave_idempotencia`
+ * UNIQUE parcial, `referencia`, `actor_usuario_id`, `anulado_por_usuario_id`,
+ * `motivo_anulacion`, `anulado_en`. Los CHECK previos de monto/moneda/medio/
+ * estado se conservan (R2/R5). `movimiento_caja` es append-only (solo
+ * `created_at`, triggers insert-only al estilo de `auditoria_phi` de 008);
+ * `cierre_caja` es snapshot UNIQUE por fecha contable, también insert-only.
+ */
+export const MIGRATION_010_CAJA = `
+CREATE TABLE IF NOT EXISTS pago_nuevo_010 (
+  id TEXT PRIMARY KEY,
+  turno_id TEXT REFERENCES turno(id),
+  presupuesto_id TEXT REFERENCES presupuesto(id),
+  monto_centavos INTEGER NOT NULL
+    CHECK (monto_centavos >= 0)
+    CHECK (monto_centavos = CAST(monto_centavos AS INTEGER)),
+  moneda TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda = 'ARS'),
+  medio TEXT NOT NULL
+    CHECK (medio IN ('efectivo', 'tarjeta', 'transferencia', 'mercadopago', 'obra_social')),
+  estado TEXT NOT NULL DEFAULT 'pendiente'
+    CHECK (estado IN ('pendiente', 'cobrado', 'anulado')),
+  clave_idempotencia TEXT,
+  referencia TEXT,
+  actor_usuario_id TEXT REFERENCES usuario(id),
+  anulado_por_usuario_id TEXT REFERENCES usuario(id),
+  motivo_anulacion TEXT,
+  anulado_en TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT,
+  CHECK (turno_id IS NOT NULL OR presupuesto_id IS NOT NULL)
+);
+INSERT INTO pago_nuevo_010 (
+    id, turno_id, presupuesto_id, monto_centavos, moneda, medio, estado,
+    clave_idempotencia, referencia, actor_usuario_id,
+    anulado_por_usuario_id, motivo_anulacion, anulado_en,
+    created_at, updated_at, deleted_at
+  )
+  SELECT
+    id, turno_id, NULL, monto_centavos, moneda, medio, estado,
+    NULL, NULL, NULL,
+    NULL, NULL, NULL,
+    created_at, updated_at, deleted_at
+  FROM pago;
+DROP TABLE pago;
+ALTER TABLE pago_nuevo_010 RENAME TO pago;
+CREATE INDEX IF NOT EXISTS idx_pago_turno ON pago(turno_id);
+CREATE INDEX IF NOT EXISTS idx_pago_presupuesto ON pago(presupuesto_id);
+CREATE INDEX IF NOT EXISTS idx_pago_estado ON pago(estado);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pago_clave_idempotencia
+  ON pago(clave_idempotencia) WHERE clave_idempotencia IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS movimiento_caja (
+  id TEXT PRIMARY KEY,
+  pago_id TEXT NOT NULL REFERENCES pago(id),
+  tipo TEXT NOT NULL CHECK (tipo IN ('cobro', 'anulacion')),
+  monto_centavos INTEGER NOT NULL
+    CHECK (monto_centavos >= 0)
+    CHECK (monto_centavos = CAST(monto_centavos AS INTEGER)),
+  moneda TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda = 'ARS'),
+  actor_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  fecha_contable TEXT NOT NULL
+    CHECK (fecha_contable GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  aplicado_en TEXT NOT NULL
+    CHECK (aplicado_en GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  motivo_asignacion TEXT
+    CHECK (motivo_asignacion IS NULL OR motivo_asignacion = 'fecha_ya_cerrada'),
+  created_at TEXT NOT NULL,
+  CHECK (
+    (IFNULL(motivo_asignacion, '') = '' AND aplicado_en = fecha_contable)
+    OR (IFNULL(motivo_asignacion, '') = 'fecha_ya_cerrada' AND aplicado_en <> fecha_contable)
+  )
+);
+CREATE INDEX IF NOT EXISTS idx_mov_caja_aplicado_en
+  ON movimiento_caja(aplicado_en);
+CREATE INDEX IF NOT EXISTS idx_mov_caja_fecha_contable
+  ON movimiento_caja(fecha_contable);
+CREATE INDEX IF NOT EXISTS idx_mov_caja_pago ON movimiento_caja(pago_id);
+CREATE TRIGGER movimiento_caja_no_update BEFORE UPDATE ON movimiento_caja
+BEGIN SELECT RAISE(ABORT, 'movimiento_caja es insert-only'); END;
+CREATE TRIGGER movimiento_caja_no_delete BEFORE DELETE ON movimiento_caja
+BEGIN SELECT RAISE(ABORT, 'movimiento_caja es insert-only'); END;
+
+CREATE TABLE IF NOT EXISTS cierre_caja (
+  id TEXT PRIMARY KEY,
+  fecha TEXT NOT NULL UNIQUE
+    CHECK (fecha GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  zona_horaria TEXT NOT NULL CHECK (length(zona_horaria) > 0),
+  total_efectivo_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (total_efectivo_centavos >= 0)
+    CHECK (total_efectivo_centavos = CAST(total_efectivo_centavos AS INTEGER)),
+  total_tarjeta_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (total_tarjeta_centavos >= 0)
+    CHECK (total_tarjeta_centavos = CAST(total_tarjeta_centavos AS INTEGER)),
+  total_transferencia_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (total_transferencia_centavos >= 0)
+    CHECK (total_transferencia_centavos = CAST(total_transferencia_centavos AS INTEGER)),
+  total_mercadopago_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (total_mercadopago_centavos >= 0)
+    CHECK (total_mercadopago_centavos = CAST(total_mercadopago_centavos AS INTEGER)),
+  total_obra_social_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (total_obra_social_centavos >= 0)
+    CHECK (total_obra_social_centavos = CAST(total_obra_social_centavos AS INTEGER)),
+  anulaciones_cantidad INTEGER NOT NULL DEFAULT 0
+    CHECK (anulaciones_cantidad >= 0)
+    CHECK (anulaciones_cantidad = CAST(anulaciones_cantidad AS INTEGER)),
+  anulaciones_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (anulaciones_centavos >= 0)
+    CHECK (anulaciones_centavos = CAST(anulaciones_centavos AS INTEGER)),
+  actor_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  cerrado_en TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TRIGGER cierre_caja_no_update BEFORE UPDATE ON cierre_caja
+BEGIN SELECT RAISE(ABORT, 'cierre_caja es insert-only'); END;
+CREATE TRIGGER cierre_caja_no_delete BEFORE DELETE ON cierre_caja
+BEGIN SELECT RAISE(ABORT, 'cierre_caja es insert-only'); END;
+`;
+
 /** 008 — historia clínica, odontograma, delegaciones y auditoría PHI (C-09). */
 export const MIGRATION_008_CLINICA = `
 ALTER TABLE paciente ADD COLUMN fecha_nacimiento TEXT;
@@ -340,6 +468,100 @@ export interface Migration {
 }
 
 /**
+ * 011 — obras sociales (C-12): cobertura por turno (cargo RN-07), liquidación de
+ * reintegros (cabecera + ítems) e historial append-only de eventos.
+ * FKs únicamente a core 001–004 (todas `id TEXT` [comprobado en 001–009]);
+ * sin FK a presupuesto (C-10) ni a pago (C-11): cambios independientes (design D1/D2).
+ * Montos/balance invariante via CHECKs; unicidades lógicas parciales
+ * `WHERE deleted_at IS NULL` (design D6); triggers insert-only al estilo C-09.
+ */
+export const MIGRATION_011_OBRAS_SOCIALES = `
+CREATE TABLE IF NOT EXISTS obra_social_cobertura_turno (
+  id TEXT PRIMARY KEY,
+  turno_id TEXT NOT NULL REFERENCES turno(id),
+  prestacion_id TEXT NOT NULL REFERENCES prestacion(id),
+  obra_social_plan_id TEXT NOT NULL REFERENCES obra_social_plan(id),
+  monto_total_centavos INTEGER NOT NULL
+    CHECK (monto_total_centavos >= 0)
+    CHECK (monto_total_centavos = CAST(monto_total_centavos AS INTEGER)),
+  cobertura_pct INTEGER NOT NULL
+    CHECK (cobertura_pct BETWEEN 0 AND 100)
+    CHECK (cobertura_pct = CAST(cobertura_pct AS INTEGER)),
+  cobertura_centavos INTEGER NOT NULL
+    CHECK (cobertura_centavos >= 0)
+    CHECK (cobertura_centavos = CAST(cobertura_centavos AS INTEGER)),
+  saldo_paciente_centavos INTEGER NOT NULL
+    CHECK (saldo_paciente_centavos >= 0)
+    CHECK (saldo_paciente_centavos = CAST(saldo_paciente_centavos AS INTEGER)),
+  moneda TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda = 'ARS'),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT,
+  CHECK (cobertura_centavos <= monto_total_centavos),
+  CHECK (saldo_paciente_centavos = monto_total_centavos - cobertura_centavos)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS os_cobertura_turno_unica
+  ON obra_social_cobertura_turno(turno_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS os_cobertura_plan_fecha
+  ON obra_social_cobertura_turno(obra_social_plan_id, created_at);
+
+CREATE TABLE IF NOT EXISTS obra_social_liquidacion (
+  id TEXT PRIMARY KEY,
+  obra_social_plan_id TEXT NOT NULL REFERENCES obra_social_plan(id),
+  desde TEXT NOT NULL,
+  hasta TEXT NOT NULL CHECK (hasta >= desde),
+  estado TEXT NOT NULL DEFAULT 'borrador'
+    CHECK (estado IN ('borrador', 'presentada', 'pagada')), -- Decisión Q2 aprobada
+  monto_total_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (monto_total_centavos >= 0)
+    CHECK (monto_total_centavos = CAST(monto_total_centavos AS INTEGER)),
+  generada_por_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS os_liquidacion_plan_periodo_unica
+  ON obra_social_liquidacion(obra_social_plan_id, desde, hasta) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS os_liquidacion_estado ON obra_social_liquidacion(estado);
+
+CREATE TABLE IF NOT EXISTS obra_social_liquidacion_item (
+  id TEXT PRIMARY KEY,
+  liquidacion_id TEXT NOT NULL REFERENCES obra_social_liquidacion(id),
+  cobertura_id TEXT NOT NULL REFERENCES obra_social_cobertura_turno(id),
+  turno_id TEXT NOT NULL REFERENCES turno(id),
+  monto_cobertura_centavos INTEGER NOT NULL
+    CHECK (monto_cobertura_centavos >= 0)
+    CHECK (monto_cobertura_centavos = CAST(monto_cobertura_centavos AS INTEGER)),
+  saldo_paciente_centavos INTEGER NOT NULL
+    CHECK (saldo_paciente_centavos >= 0),
+  cobertura_pct INTEGER NOT NULL
+    CHECK (cobertura_pct BETWEEN 0 AND 100)
+    CHECK (cobertura_pct = CAST(cobertura_pct AS INTEGER)),
+  created_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS os_item_turno_liquidado_unico
+  ON obra_social_liquidacion_item(turno_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS os_item_liquidacion
+  ON obra_social_liquidacion_item(liquidacion_id);
+
+CREATE TABLE IF NOT EXISTS obra_social_liquidacion_evento (
+  id TEXT PRIMARY KEY,
+  liquidacion_id TEXT NOT NULL REFERENCES obra_social_liquidacion(id),
+  evento TEXT NOT NULL CHECK (evento IN ('generada', 'presentada', 'pagada')),
+  actor_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  ocurrido_en TEXT NOT NULL, -- momento del evento de negocio
+  created_at TEXT NOT NULL  -- sello de inserción (contrato de AppendOnlyRepository)
+);
+CREATE INDEX IF NOT EXISTS os_evento_liquidacion
+  ON obra_social_liquidacion_evento(liquidacion_id, ocurrido_en);
+CREATE TRIGGER os_evento_no_update BEFORE UPDATE ON obra_social_liquidacion_evento
+BEGIN SELECT RAISE(ABORT, 'obra_social_liquidacion_evento es insert-only'); END;
+CREATE TRIGGER os_evento_no_delete BEFORE DELETE ON obra_social_liquidacion_evento
+BEGIN SELECT RAISE(ABORT, 'obra_social_liquidacion_evento es insert-only'); END;
+`;
+
+/**
  * Registro ordenado de migraciones (design D4). La migración base 001 crea las
  * tablas núcleo. El orden del array ES el orden de aplicación.
  */
@@ -353,6 +575,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '007', sql: MIGRATION_007_RECORDATORIO },
   { id: '008', sql: MIGRATION_008_CLINICA },
   { id: '009', sql: MIGRATION_009_PRESUPUESTOS },
+  { id: '010', sql: MIGRATION_010_CAJA },
+  { id: '011', sql: MIGRATION_011_OBRAS_SOCIALES },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

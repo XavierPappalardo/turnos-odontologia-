@@ -27,6 +27,11 @@ export type PresupuestoId = Brand<string, 'PresupuestoId'>;
 export type ItemPresupuestoId = Brand<string, 'ItemPresupuestoId'>;
 export type ObraSocialPlanId = Brand<string, 'ObraSocialPlanId'>;
 
+/** Identificadores de caja (C-11). */
+export type PagoId = Brand<string, 'PagoId'>;
+export type CajaMovimientoId = Brand<string, 'CajaMovimientoId'>;
+export type CierreCajaId = Brand<string, 'CierreCajaId'>;
+
 /** Estados de presupuesto (C-10). */
 export type PresupuestoEstado =
   | 'borrador'
@@ -88,6 +93,142 @@ export interface ItemPresupuesto {
   superficie: SuperficieFdi | null;
   created_at: string;
   deleted_at: string | null;
+}
+
+/** Estados de liquidación de obra social (C-12, default [Supuesto] de Open Question 2). */
+export type LiquidacionOsEstado = 'borrador' | 'presentada' | 'pagada';
+
+export const LIQUIDACION_OS_ESTADOS: readonly LiquidacionOsEstado[] = [
+  'borrador',
+  'presentada',
+  'pagada',
+] as const;
+
+/** Estados terminales: una vez alcanzados no aceptan más transiciones. */
+export const LIQUIDACION_OS_ESTADOS_TERMINALES: readonly LiquidacionOsEstado[] =
+  ['pagada'] as const;
+
+/** Transiciones válidas: desde -> hacia[] (default [Supuesto] Q2: lineal). */
+export const LIQUIDACION_OS_TRANSICIONES: ReadonlyMap<
+  LiquidacionOsEstado,
+  readonly LiquidacionOsEstado[]
+> = new Map([
+  ['borrador', ['presentada']],
+  ['presentada', ['pagada']],
+  ['pagada', []],
+]);
+
+/** Eventos del historial append-only de liquidación (design D2 [corr. 3ª ronda]). */
+export type LiquidacionOsEvento = 'generada' | 'presentada' | 'pagada';
+
+export const LIQUIDACION_OS_EVENTOS: readonly LiquidacionOsEvento[] = [
+  'generada',
+  'presentada',
+  'pagada',
+] as const;
+
+/** Identificadores de obras sociales (C-12). */
+export type CoberturaTurnoId = Brand<string, 'CoberturaTurnoId'>;
+export type LiquidacionOsId = Brand<string, 'LiquidacionOsId'>;
+export type LiquidacionOsItemId = Brand<string, 'LiquidacionOsItemId'>;
+
+/** Interfaces de dominio de obras sociales (C-12).
+ * Todos los montos son enteros en centavos (ARS), nunca float (R2/R5/R6).
+ */
+export interface CoberturaTurno {
+  id: CoberturaTurnoId;
+  turno_id: TurnoId;
+  prestacion_id: PrestacionId;
+  obra_social_plan_id: ObraSocialPlanId;
+  monto_total_centavos: number;
+  cobertura_pct: number;
+  cobertura_centavos: number;
+  saldo_paciente_centavos: number;
+  moneda: 'ARS';
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface LiquidacionOs {
+  id: LiquidacionOsId;
+  obra_social_plan_id: ObraSocialPlanId;
+  desde: string;
+  hasta: string;
+  estado: LiquidacionOsEstado;
+  monto_total_centavos: number;
+  generada_por_usuario_id: UsuarioId;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ItemLiquidacionOs {
+  id: LiquidacionOsItemId;
+  liquidacion_id: LiquidacionOsId;
+  cobertura_id: CoberturaTurnoId;
+  turno_id: TurnoId;
+  monto_cobertura_centavos: number;
+  saldo_paciente_centavos: number;
+  cobertura_pct: number;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+export interface EventoLiquidacionOs {
+  id: string;
+  liquidacion_id: LiquidacionOsId;
+  evento: LiquidacionOsEvento;
+  actor_usuario_id: UsuarioId;
+  ocurrido_en: string;
+  created_at: string;
+}
+
+/** Tipos de dominio de caja (C-11).
+ * Los montos son enteros en centavos ARS, nunca float (R2/R5/R6).
+ * `medio` reutiliza `PagoMedio` de `core/models.ts` (task 1.2).
+ */
+export type CajaMovimientoTipo = 'cobro' | 'anulacion';
+
+/** Motivo de asignación de un movimiento cuya fecha contable ya estaba cerrada (design D3). */
+export type MotivoAsignacionCaja = 'fecha_ya_cerrada';
+
+export interface CajaMovimiento {
+  id: CajaMovimientoId;
+  pago_id: PagoId;
+  tipo: CajaMovimientoTipo;
+  monto_centavos: number;
+  moneda: 'ARS';
+  actor_usuario_id: UsuarioId;
+  /** Día local (YYYY-MM-DD, zona IANA configurada) del evento. */
+  fecha_contable: string;
+  /** Día contable al que se asigna el movimiento para el snapshot y el resumen. */
+  aplicado_en: string;
+  /** `NULL` cuando `aplicado_en = fecha_contable`; `fecha_ya_cerrada` si el día ya estaba cerrado (design D3). */
+  motivo_asignacion: MotivoAsignacionCaja | null;
+  /** Sello UTC de inserción: la fecha/hora de asignación del movimiento. */
+  created_at: string;
+}
+
+export interface CierreCaja {
+  id: CierreCajaId;
+  /** Fecha contable (YYYY-MM-DD) única por cierre (RN-09). */
+  fecha: string;
+  /** Zona horaria IANA usada para calcular la fecha contable (design D11). */
+  zona_horaria: string;
+  total_efectivo_centavos: number;
+  total_tarjeta_centavos: number;
+  total_transferencia_centavos: number;
+  total_mercadopago_centavos: number;
+  /** Ingreso real reembolsado por la obra social, separado del cobrado a bolsillo. */
+  total_obra_social_centavos: number;
+  anulaciones_cantidad: number;
+  anulaciones_centavos: number;
+  actor_usuario_id: UsuarioId;
+  /** Momento del cierre en ISO-8601 UTC. */
+  cerrado_en: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Tipos de dominio clínico (C-09). */

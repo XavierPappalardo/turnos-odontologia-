@@ -23,6 +23,23 @@ export interface RecordatorioConfig {
   readonly canalPredeterminado: 'whatsapp' | 'email';
 }
 
+/** Configuración de caja (C-11, design D11). */
+export interface CajaConfig {
+  /** Zona horaria IANA para las fechas contables. Default `America/Buenos_Aires`. */
+  readonly zonaHoraria: string;
+}
+
+/** Configuración de Mercado Pago (C-11, design D7): solo sandbox. */
+export interface MercadoPagoConfig {
+  /** Disponible solo con credenciales de prueba y secreto de firma definidos. */
+  readonly habilitado: boolean;
+  readonly ambiente: 'sandbox';
+  /** Access token de prueba del servidor; nunca se expone ni se loguea (R15). */
+  readonly token: string | null;
+  /** Secreto `MP_WEBHOOK_SECRET` para verificar la firma del webhook (HMAC-SHA256). */
+  readonly webhookSecret: string | null;
+}
+
 export interface AppConfig {
   readonly port: number;
   readonly databasePath: string;
@@ -35,6 +52,8 @@ export interface AppConfig {
   readonly cookieSecure: boolean;
   readonly reservaOnline: ReservaOnlineConfig;
   readonly recordatorio: RecordatorioConfig;
+  readonly caja: CajaConfig;
+  readonly mercadopago: MercadoPagoConfig;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'production', 'test'];
@@ -50,6 +69,13 @@ const DEFAULT_TURNO_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 días, ficticio [
 const DEFAULT_RECORDATORIO_T48H_HORAS = 48; // ficticio [Supuesto FL-03]
 const DEFAULT_RECORDATORIO_T24H_HORAS = 24; // ficticio [Supuesto FL-03]
 const DEFAULT_RECORDATORIO_CANAL_PREDETERMINADO: 'whatsapp' | 'email' = 'whatsapp';
+/**
+ * Default de caja (C-11, design D11): identificador canónico en Node 22
+ * (normaliza el alias `America/Argentina/Buenos_Aires`). Documentado en
+ * `.env.example`; validado al arrancar configurando `Intl.DateTimeFormat`.
+ */
+const DEFAULT_CAJA_ZONA_HORARIA = 'America/Buenos_Aires';
+const MP_ENV_SANDBOX = 'sandbox';
 
 /** Error de configuración: nombra la variable faltante/inválida (fail-fast). */
 export class ConfigError extends Error {
@@ -82,6 +108,52 @@ function positiveInt(
     throw new ConfigError(name, `${name} debe ser un entero positivo, recibido "${raw}"`);
   }
   return value;
+}
+
+/**
+ * Valida la zona horaria IANA de caja (C-11, spec cierre-diario / design D11):
+ * la evidencia de soporte es construir un `Intl.DateTimeFormat` con la zona y
+ * capturar el error. NO se consulta `Intl.supportedValuesOf` porque no lista
+ * todos los alias IANA válidos (p. ej. `America/Argentina/Buenos_Aires`), y un
+ * alias válido no se rechaza por ausencia en la lista.
+ */
+function validarZonaHorariaCaja(env: NodeJS.ProcessEnv): string {
+  const raw = env['CAJA_ZONA_HORARIA'];
+  const zona = (raw ?? DEFAULT_CAJA_ZONA_HORARIA).trim();
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: zona });
+  } catch {
+    throw new ConfigError(
+      'CAJA_ZONA_HORARIA',
+      `CAJA_ZONA_HORARIA no es una zona horaria IANA soportada, recibido "${zona}"`,
+    );
+  }
+  return zona;
+}
+
+/** Lee y valida el modo de Mercado Pago (solo `sandbox`, fail-fast). */
+function validarAmbienteMercadoPago(env: NodeJS.ProcessEnv): 'sandbox' {
+  const raw = (env['MP_ENV'] ?? MP_ENV_SANDBOX).trim();
+  if (raw !== MP_ENV_SANDBOX) {
+    throw new ConfigError(
+      'MP_ENV',
+      `MP_ENV solo admite "${MP_ENV_SANDBOX}" en el cimiento actual (sin exponer valores de credenciales), recibido "${raw}"`,
+    );
+  }
+  return MP_ENV_SANDBOX;
+}
+
+/** Lee la configuración de Mercado Pago: deshabilitado sin token o sin secreto de firma. */
+function leerMercadoPagoConfig(env: NodeJS.ProcessEnv): MercadoPagoConfig {
+  const ambiente = validarAmbienteMercadoPago(env);
+  const token = env['MP_ACCESS_TOKEN']?.trim() || null;
+  const webhookSecret = env['MP_WEBHOOK_SECRET']?.trim() || null;
+  return {
+    habilitado: token !== null && webhookSecret !== null,
+    ambiente,
+    token,
+    webhookSecret,
+  };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -175,5 +247,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       canalPredeterminado: (env['RECORDATORIO_CANAL_PREDETERMINADO'] ??
         DEFAULT_RECORDATORIO_CANAL_PREDETERMINADO) as 'whatsapp' | 'email',
     },
+    caja: {
+      zonaHoraria: validarZonaHorariaCaja(env),
+    },
+    mercadopago: leerMercadoPagoConfig(env),
   };
 }

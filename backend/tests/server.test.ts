@@ -5,6 +5,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/shared/app.js';
+import { signToken } from '../src/auth/tokens.js';
 import { openDatabase } from '../src/shared/repository.js';
 import { startServer } from '../src/shared/server.js';
 import type { AuthConfig } from '../src/auth/types.js';
@@ -34,6 +35,15 @@ const APP_CONFIG: AppConfig = {
       t48hHoras: 48,
       t24hHoras: 24,
       canalPredeterminado: 'whatsapp',
+    },
+    caja: {
+      zonaHoraria: 'America/Buenos_Aires',
+    },
+    mercadopago: {
+      habilitado: false,
+      ambiente: 'sandbox',
+      token: null,
+      webhookSecret: null,
     },
   };
 
@@ -72,6 +82,51 @@ describe('startServer', () => {
       expect(res.body).toEqual({ status: 'ok' });
     } finally {
       await server.close();
+    }
+  });
+});
+
+/**
+ * Prueba breve de integración del montaje de rutas de obras sociales
+ * (C-12, task 7.1): los routers quedan accesibles bajo /api/obras-sociales/*
+ * con su auth/RBAC activo. Suite completa por capacidad en los tests C-12.
+ */
+describe('obras-sociales montadas en createApp (C-12, task 7.1)', () => {
+  it('Dado GET /api/obras-sociales/planes sin token Entonces 401 (router montado y autenticado)', async () => {
+    const db = openDatabase(':memory:');
+    try {
+      const res = await request(createApp(db, APP_CONFIG)).get(
+        '/api/obras-sociales/planes',
+      );
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'no_autenticado' });
+    } finally {
+      db.close();
+    }
+  });
+
+  it('Dado token válido de administración Cuando GET liquidación inexistente Entonces 404 (router montado y llega al service)', async () => {
+    const db = openDatabase(':memory:');
+    try {
+      const token =
+        'Bearer ' +
+        signToken(
+          {
+            sub: 'user-os-smoke',
+            tenantId: 'test',
+            roles: ['administracion'],
+            email: 'os-smoke@example.test',
+            type: 'access',
+            ttlSeconds: 900,
+          },
+          AUTH.jwtSecret,
+        );
+      const res = await request(createApp(db, APP_CONFIG))
+        .get('/api/obras-sociales/liquidaciones/liquidacion-inexistente-404')
+        .set('authorization', token);
+      expect(res.status).toBe(404);
+    } finally {
+      db.close();
     }
   });
 });

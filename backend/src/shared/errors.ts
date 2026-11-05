@@ -247,3 +247,52 @@ export class EventoInmutableError extends AppError {
     return { error: this.code };
   }
 }
+
+/** Códigos de error del dominio de caja (C-11, tasks 5.3/exportados por spec). */
+export type CajaErrorCode =
+  | 'validacion'
+  | 'not_found'
+  | 'aplicacion_requerida'
+  | 'monto_excede_saldo'
+  | 'cobro_os_excede_cobertura'
+  | 'idempotencia_conflictos'
+  | 'anulacion_inconsistente'
+  | 'cierre_duplicado'
+  | 'sin_caja_abierta_asignacion'
+  | 'mp_no_configurado'
+  | 'mp_firma_invalida'
+  | 'mp_pago_inexistente'
+  | 'mp_pago_no_aprobado'
+  | 'mp_pago_no_verificado'
+  | 'mp_datos_incongruentes'
+  | 'mp_error_proveedor'
+  | 'mp_transicion_invalida';
+
+/**
+ * Error tipado de caja (C-11). Sin PHI (R3): la respuesta solo lleva el código;
+ * `detalle` aparece únicamente en errores de `validacion`.
+ */
+export class CajaError extends AppError {
+  declare readonly status: 400 | 401 | 403 | 404 | 409 | 422 | 502 | 503;
+  declare readonly code: CajaErrorCode;
+  readonly detalle?: string | undefined;
+
+  constructor(args: {
+    status: 400 | 401 | 403 | 404 | 409 | 422 | 502 | 503;
+    code: CajaErrorCode;
+    message: string;
+    detalle?: string;
+  }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'CajaError';
+    this.detalle = args.detalle;
+  }
+
+  toBody(): Record<string, unknown> {
+    const body: Record<string, unknown> = { error: this.code };
+    if (this.code === 'validacion' && this.detalle !== undefined) {
+      body['detalle'] = this.detalle;
+    }
+    return body;
+  }
+}

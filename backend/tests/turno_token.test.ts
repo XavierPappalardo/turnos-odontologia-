@@ -37,6 +37,15 @@ const AUTH: AppConfig = {
       t24hHoras: 24,
       canalPredeterminado: 'whatsapp',
     },
+    caja: {
+      zonaHoraria: 'America/Buenos_Aires',
+    },
+    mercadopago: {
+      habilitado: false,
+      ambiente: 'sandbox',
+      token: null,
+      webhookSecret: null,
+    },
   };
 
 // ── Fixtures ficticios (R1/R12) ────────────────────────────────────────────

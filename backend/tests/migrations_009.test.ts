@@ -30,10 +30,11 @@ function checksTabla(db: DatabaseSync, tabla: string): string[] {
 }
 
 describe('Migración 009 - presupuesto y item_presupuesto', () => {
-  it('Dado MIGRATIONS Cuando lista migraciones Entonces incluye 009 al final', () => {
+  it('Dado MIGRATIONS Cuando lista migraciones Entonces incluye 009 inmediatamente después de 008 (siguen 010 caja y 011 obras sociales al final)', () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(ids).toContain('009');
-    expect(ids[ids.length - 1]).toBe('009');
+    expect(ids[9]).toBe('010'); // columna por C-11 justo tras 009
+    expect(ids[ids.length - 1]).toBe('011');
   });
 
   it('Dado BD nueva Cuando corro migraciones 001→009 Entonces crean presupuesto e item_presupuesto', () => {

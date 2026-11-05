@@ -55,9 +55,20 @@ export type PagoEstado = 'pendiente' | 'cobrado' | 'anulado';
 
 export interface PagoRow extends AuditRow {
   id: string;
-  turno_id: string;
+  /** Visible desde la migración 010 (C-11): nullable para cobros aplicados a presupuesto sin turno. */
+  turno_id: string | null;
+  /** Visible desde la migración 010 (C-11): FK a presupuesto con CHECK de aplicación obligatoria. */
+  presupuesto_id?: string | null;
   monto_centavos: number;
   moneda: 'ARS';
   medio: PagoMedio;
   estado: PagoEstado;
+  /** Clave de idempotencia del cobro (UNIQUE parcial, C-11 design D5). */
+  clave_idempotencia?: string | null;
+  /** Referencia del medio (p. ej. últimos 4 dígitos de transferencia o id de pago MP). */
+  referencia?: string | null;
+  actor_usuario_id?: string | null;
+  anulado_por_usuario_id?: string | null;
+  motivo_anulacion?: string | null;
+  anulado_en?: string | null;
 }

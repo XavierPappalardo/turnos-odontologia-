@@ -14,3 +14,32 @@ export function normalizarIsoUtc(valor: string): string | undefined {
 
   return new Date(ms).toISOString();
 }
+
+/**
+ * Fecha contable de caja (C-11, design D11): día local `YYYY-MM-DD` de un
+ * instante ISO UTC dentro de una zona horaria IANA, vía `Intl.DateTimeFormat`
+ * con locale numérico `en-CA` (produce exactamente `YYYY-MM-DD`).
+ * Función pura: no depende del reloj ni de la zona local del host.
+ * La zona debe estar validada al cargar configuración (una `Intl.DateTimeFormat`
+ * construida con la zona y capturando el error); con zona inválida lanza
+ * `RangeError` del propio `Intl`.
+ */
+export function fechaContable(
+  instantIsoUtc: string,
+  zona: string,
+): string {
+  const ms = Date.parse(
+    typeof instantIsoUtc === 'string' ? instantIsoUtc.trim() : '',
+  );
+  if (Number.isNaN(ms)) {
+    throw new Error('instante ISO UTC inválido para fecha contable');
+  }
+
+  const formato = new Intl.DateTimeFormat('en-CA', {
+    timeZone: zona,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formato.format(new Date(ms));
+}
