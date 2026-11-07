@@ -136,4 +136,19 @@ export class TurnoRepository extends BaseRepository<TurnoRow> {
     const row = stmt.get(profesionalId, sillonId, fin, inicio) as { n: number };
     return row.n;
   }
+
+  /**
+   * Turnos futuros activos para el backfill de recordatorios (c-07-fix, D9):
+   * solo `reservado`/`confirmado` vigentes (`deleted_at IS NULL`), ASC por inicio.
+   */
+  listarFuturosActivos(desdeIso: string): TurnoRow[] {
+    const stmt = this.db.prepare(
+      `SELECT * FROM turno
+        WHERE inicio > ?
+          AND estado IN ('reservado', 'confirmado')
+          AND ${TURNO_VIGENTE_SQL}
+        ORDER BY inicio ASC`,
+    );
+    return stmt.all(desdeIso) as unknown as TurnoRow[];
+  }
 }

@@ -13,6 +13,8 @@ import type { PacienteId, PrestacionId, ProfesionalId, SillonId, TurnoId } from 
 import { BloqueoRepository } from './bloqueo.repository.js';
 import { TurnoRepository, type TurnoRow } from './turno.repository.js';
 import { normalizarUtc } from './crearTurno.service.js';
+import { programarRecordatoriosSeguro } from '../notificaciones/recordatorio.worker.js';
+import type { RecordatorioConfig } from '../shared/config.js';
 
 export interface ReservaOnlineInput {
   profesionalId: string;
@@ -58,9 +60,10 @@ export function reservarTurnoOnline(
   db: DatabaseSync,
   input: ReservaOnlineInput,
   anticipacionMinSegundos: number,
+  recordatorioConfig: RecordatorioConfig,
 ): TurnoReservado {
   const uow = new UnitOfWork(db);
-  return uow.runInTransaction(() => {
+  const creado = uow.runInTransaction((): TurnoReservado => {
     if (
       input.profesionalId === '' ||
       input.sillonId === '' ||
@@ -174,5 +177,9 @@ export function reservarTurnoOnline(
       origen: 'online',
     };
   });
+
+  // Programación post-commit (design D1/D2): fuera del BEGIN IMMEDIATE.
+  programarRecordatoriosSeguro(db, creado.id, creado.inicio, recordatorioConfig);
+  return creado;
 }
 

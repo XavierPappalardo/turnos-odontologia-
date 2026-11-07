@@ -163,3 +163,62 @@ export function sembrarBloqueo(
   );
   return id as BloqueoId;
 }
+
+// ── Fixtures de recordatorios (c-07-fix, task 2.4) ─────────────────────────
+export interface RecordatorioFixture {
+  turnoId: string;
+  tipo?: 'recordatorio_48h' | 'recordatorio_24h';
+  canal?: 'whatsapp' | 'email';
+  programadoPara?: string;
+  estado?: 'pendiente' | 'enviado' | 'fallido' | 'cancelado';
+  enviadoEn?: string | null;
+}
+
+export interface RecordatorioPersistido {
+  id: string;
+  turno_id: string;
+  tipo: 'recordatorio_48h' | 'recordatorio_24h';
+  canal: 'whatsapp' | 'email';
+  programado_para: string;
+  estado: 'pendiente' | 'enviado' | 'fallido' | 'cancelado';
+  enviado_en: string | null;
+}
+
+/** Siembra un recordatorio ficticio directo por SQL (R1/R12). */
+export function sembrarRecordatorio(
+  db: DatabaseSync,
+  args: RecordatorioFixture,
+): string {
+  const now = new Date().toISOString();
+  const id = idUnico('rec');
+  db.prepare(
+    `INSERT INTO recordatorio (id, turno_id, tipo, canal, programado_para, estado, enviado_en, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    args.turnoId,
+    args.tipo ?? 'recordatorio_48h',
+    args.canal ?? 'whatsapp',
+    args.programadoPara ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    args.estado ?? 'pendiente',
+    args.enviadoEn ?? null,
+    now,
+    now,
+  );
+  return id;
+}
+
+/** Lee las filas de recordatorio de un turno, ordenadas por tipo. */
+export function leerRecordatoriosDeTurno(
+  db: DatabaseSync,
+  turnoId: string,
+): RecordatorioPersistido[] {
+  return db
+    .prepare(
+      `SELECT id, turno_id, tipo, canal, programado_para, estado, enviado_en
+         FROM recordatorio
+        WHERE turno_id = ?
+        ORDER BY tipo ASC`,
+    )
+    .all(turnoId) as unknown as RecordatorioPersistido[];
+}

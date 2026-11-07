@@ -15,6 +15,11 @@ import { TurnoRepository } from '../src/agenda/turno.repository.js';
 import { createApp } from '../src/shared/app.js';
 import { applyMigration003, openDatabase } from '../src/shared/repository.js';
 import { signToken } from '../src/auth/tokens.js';
+import {
+  leerRecordatoriosDeTurno,
+  sembrarRecordatorio,
+  sembrarTurno as sembrarTurnoCompartido,
+} from './helpers/agenda-fixtures.js';
 import type { AuthConfig } from '../src/auth/types.js';
 import type { AppConfig } from '../src/shared/config.js';
 import type {
@@ -560,7 +565,7 @@ describe('Dado servicio crearTurno Cuando el turno contenido solapa Entonces 409
         inicio: '2026-10-07T10:15:00.000Z',
         fin: '2026-10-07T10:30:00.000Z',
         rol: 'recepcion',
-      });
+      }, APP_CONFIG.recordatorio);
     } catch (err) {
       eje = (err as { eje?: string }).eje;
     }
@@ -578,7 +583,7 @@ describe('Dado servicio crearTurno Cuando el turno contenido solapa Entonces 409
         inicio: '2026-10-07 10:00',
         fin: '2026-10-07 10:30',
         rol: 'recepcion',
-      });
+      }, APP_CONFIG.recordatorio);
     } catch (err) {
       status = (err as { status?: number }).status;
     }
@@ -590,5 +595,149 @@ describe('Dado servicio crearTurno Cuando el turno contenido solapa Entonces 409
     const prof = PROF as ProfesionalId;
     const distintos: boolean = (pac as string) !== (prof as string);
     expect(distintos).toBe(true);
+  });
+});
+
+// ── 2.x Cableado de recordatorios en la creación (c-07-fix) ──────────────────
+const TRIGGER_FALLO =
+  `CREATE TRIGGER fallo_programacion BEFORE INSERT ON recordatorio
+   BEGIN SELECT RAISE(ABORT, 'fallo simulado'); END;`;
+
+describe('Dado el servicio crearTurno Cuando el turno tiene inicio futuro Entonces programa recordatorios', () => {
+  it('2.1a Dado inicio a +7 días Cuando creo el turno Entonces queda reservado con dos pendientes', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const fin = new Date(baseMs + 30 * 60 * 1000).toISOString();
+
+    const creado = crearTurno(
+      db,
+      {
+        profesionalId: PROF,
+        sillonId: SILLA,
+        pacienteId: PAC,
+        inicio,
+        fin,
+        rol: 'recepcion',
+      },
+      APP_CONFIG.recordatorio,
+    );
+
+    expect(creado.estado).toBe('reservado');
+    const filas = leerRecordatoriosDeTurno(db, creado.id);
+    expect(filas.length).toBe(2);
+    expect(filas.map((f) => f.tipo)).toEqual([
+      'recordatorio_24h',
+      'recordatorio_48h',
+    ]);
+    expect(filas.every((f) => f.estado === 'pendiente')).toBe(true);
+    expect(filas.every((f) => f.canal === 'whatsapp')).toBe(true);
+    expect(filas.find((f) => f.tipo === 'recordatorio_48h')!.programado_para).toBe(
+      new Date(baseMs - 48 * 60 * 60 * 1000).toISOString(),
+    );
+    expect(filas.find((f) => f.tipo === 'recordatorio_24h')!.programado_para).toBe(
+      new Date(baseMs - 24 * 60 * 60 * 1000).toISOString(),
+    );
+  });
+
+  it('2.1b Dado inicio a +1 hora Cuando creo el turno Entonces no se programa ningún recordatorio', () => {
+    const baseMs = Date.now() + 60 * 60 * 1000;
+    const creado = crearTurno(
+      db,
+      {
+        profesionalId: PROF,
+        sillonId: SILLA,
+        pacienteId: PAC,
+        inicio: new Date(baseMs).toISOString(),
+        fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+        rol: 'recepcion',
+      },
+      APP_CONFIG.recordatorio,
+    );
+
+    expect(creado.estado).toBe('reservado');
+    expect(leerRecordatoriosDeTurno(db, creado.id).length).toBe(0);
+  });
+
+  it('2.1c Dado un fallo real de programación Cuando creo el turno Entonces el turno queda persistido y la creación no falla', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    db.prepare(TRIGGER_FALLO).run();
+    let creado: ReturnType<typeof crearTurno> | undefined;
+    try {
+      expect(() => {
+        creado = crearTurno(
+          db,
+          {
+            profesionalId: PROF,
+            sillonId: SILLA,
+            pacienteId: PAC,
+            inicio: new Date(baseMs).toISOString(),
+            fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+            rol: 'recepcion',
+          },
+          APP_CONFIG.recordatorio,
+        );
+      }).not.toThrow();
+    } finally {
+      db.prepare('DROP TRIGGER fallo_programacion').run();
+    }
+
+    expect(creado!.estado).toBe('reservado');
+    expect(new TurnoRepository(db).findById(creado!.id)).toBeDefined();
+    expect(leerRecordatoriosDeTurno(db, creado!.id).length).toBe(0);
+  });
+
+  it('2.3a Dado canal predeterminado email Cuando creo con inicio futuro Entonces ambos recordatorios usan email', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const creado = crearTurno(
+      db,
+      {
+        profesionalId: PROF,
+        sillonId: SILLA,
+        pacienteId: PAC,
+        inicio: new Date(baseMs).toISOString(),
+        fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+        rol: 'recepcion',
+      },
+      { ...APP_CONFIG.recordatorio, canalPredeterminado: 'email' },
+    );
+
+    const filas = leerRecordatoriosDeTurno(db, creado.id);
+    expect(filas.length).toBe(2);
+    expect(filas.every((f) => f.canal === 'email')).toBe(true);
+  });
+
+  it('2.3b Dado inicio a +30 horas Cuando creo el turno Entonces sólo se programa el hito de 24h', () => {
+    const baseMs = Date.now() + 30 * 60 * 60 * 1000;
+    const creado = crearTurno(
+      db,
+      {
+        profesionalId: PROF,
+        sillonId: SILLA,
+        pacienteId: PAC,
+        inicio: new Date(baseMs).toISOString(),
+        fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+        rol: 'recepcion',
+      },
+      APP_CONFIG.recordatorio,
+    );
+
+    const filas = leerRecordatoriosDeTurno(db, creado.id);
+    expect(filas.map((f) => f.tipo)).toEqual(['recordatorio_24h']);
+  });
+
+  it('2.4 helper de fixtures: un recordatorio sembrado se lee por turno', () => {
+    const turnoId = sembrarTurnoCompartido(db, {
+      inicio: '2026-10-07T13:00:00.000Z',
+      fin: '2026-10-07T13:30:00.000Z',
+    });
+    sembrarRecordatorio(db, {
+      turnoId,
+      tipo: 'recordatorio_48h',
+      estado: 'pendiente',
+    });
+
+    const filas = leerRecordatoriosDeTurno(db, turnoId);
+    expect(filas.length).toBe(1);
+    expect(filas[0]!.tipo).toBe('recordatorio_48h');
   });
 });

@@ -14,6 +14,7 @@ import { createApp } from '../src/shared/app.js';
 import { openDatabase } from '../src/shared/repository.js';
 import type { AppConfig } from '../src/shared/config.js';
 import type { PacienteId, ProfesionalId, SillonId } from '../src/shared/types.js';
+import { leerRecordatoriosDeTurno, sembrarRecordatorio } from './helpers/agenda-fixtures.js';
 
 // ── Configuración de prueba ─────────────────────────────────────────────────
 const AUTH: AppConfig = {
@@ -403,4 +404,159 @@ describe('Dado servicio ejecutarAccionTurno Cuando el turno es válido Entonces 
     expect(distintos).toBe(true);
   });
 });
-
+
+// ── 3.x Cableado de recordatorios al confirmar por token (c-07-fix) ─────────
+describe('Dado ejecutarAccionTurno con accion confirmar Cuando el inicio es futuro Entonces programa los hitos', () => {
+  it('3.1c Dado un turno reservado sin recordatorios e inicio a +7 días Cuando confirma Entonces quedan dos pendientes', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const turnoId = crearTurnoTest(db, {
+      inicio: new Date(baseMs).toISOString(),
+      fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+    });
+    const token = crearTokenTest(db, {
+      turnoId,
+      accion: 'confirmar',
+      tokenClaro: 'tok-confirmar-programa',
+    });
+
+    const resultado = ejecutarAccionTurno(
+      db,
+      { turnoId, accion: 'confirmar', token },
+      AUTH,
+    );
+
+    expect(resultado.estado).toBe('confirmado');
+    const filas = leerRecordatoriosDeTurno(db, turnoId);
+    expect(filas.length).toBe(2);
+    expect(filas.every((f) => f.estado === 'pendiente')).toBe(true);
+  });
+});
+
+// ── 4.x Reprogramación completa: cancelar viejos y programar el turno nuevo ──
+describe('Dado un turno con recordatorios Cuando se reprograma Entonces los viejos se cancelan y el turno nuevo se programa', () => {
+  const DIA_MS = 24 * 60 * 60 * 1000;
+
+  function turnoConPendientes(inicioMs: number): string {
+    const turnoId = crearTurnoTest(db, {
+      inicio: new Date(inicioMs).toISOString(),
+      fin: new Date(inicioMs + 30 * 60 * 1000).toISOString(),
+    });
+    sembrarRecordatorio(db, {
+      turnoId,
+      tipo: 'recordatorio_48h',
+      programadoPara: new Date(inicioMs - 48 * 60 * 60 * 1000).toISOString(),
+    });
+    sembrarRecordatorio(db, {
+      turnoId,
+      tipo: 'recordatorio_24h',
+      programadoPara: new Date(inicioMs - 24 * 60 * 60 * 1000).toISOString(),
+    });
+    return turnoId;
+  }
+
+  it('4.1a Dado un turno con pendientes Cuando reprogramo a +7 días Entonces los viejos quedan cancelados y el nuevo tiene dos pendientes', () => {
+    const turnoId = turnoConPendientes(Date.now() + 10 * DIA_MS);
+    const token = crearTokenTest(db, {
+      turnoId,
+      accion: 'reprogramar',
+      tokenClaro: 'tok-reprogramar-programa',
+    });
+    const nuevoMs = Date.now() + 7 * DIA_MS;
+    const nuevoInicio = new Date(nuevoMs).toISOString();
+    const nuevoFin = new Date(nuevoMs + 30 * 60 * 1000).toISOString();
+
+    const resultado = ejecutarAccionTurno(
+      db,
+      { turnoId, accion: 'reprogramar', token, nuevoInicio, nuevoFin },
+      AUTH,
+    );
+
+    expect(resultado.turnoReprogramado).toBeDefined();
+    const viejos = leerRecordatoriosDeTurno(db, turnoId);
+    expect(viejos.length).toBe(2);
+    expect(viejos.every((f) => f.estado === 'cancelado')).toBe(true);
+
+    const nuevoId = resultado.turnoReprogramado as string;
+    expect(new TurnoRepository(db).findById(nuevoId)!.estado).toBe('reservado');
+    const nuevos = leerRecordatoriosDeTurno(db, nuevoId);
+    expect(nuevos.length).toBe(2);
+    expect(nuevos.every((f) => f.estado === 'pendiente')).toBe(true);
+    expect(nuevos.find((f) => f.tipo === 'recordatorio_48h')!.programado_para).toBe(
+      new Date(nuevoMs - 48 * 60 * 60 * 1000).toISOString(),
+    );
+    expect(nuevos.find((f) => f.tipo === 'recordatorio_24h')!.programado_para).toBe(
+      new Date(nuevoMs - 24 * 60 * 60 * 1000).toISOString(),
+    );
+  });
+
+  it('4.1b Dado un turno con pendientes Cuando reprogramo a +1 hora Entonces los viejos quedan cancelados y el nuevo no tiene recordatorios', () => {
+    const turnoId = turnoConPendientes(Date.now() + 10 * DIA_MS);
+    const token = crearTokenTest(db, {
+      turnoId,
+      accion: 'reprogramar',
+      tokenClaro: 'tok-reprogramar-cerca',
+    });
+    const nuevoMs = Date.now() + 60 * 60 * 1000;
+    const nuevoInicio = new Date(nuevoMs).toISOString();
+    const nuevoFin = new Date(nuevoMs + 30 * 60 * 1000).toISOString();
+
+    const resultado = ejecutarAccionTurno(
+      db,
+      { turnoId, accion: 'reprogramar', token, nuevoInicio, nuevoFin },
+      AUTH,
+    );
+
+    const viejos = leerRecordatoriosDeTurno(db, turnoId);
+    expect(viejos.length).toBe(2);
+    expect(viejos.every((f) => f.estado === 'cancelado')).toBe(true);
+    expect(
+      leerRecordatoriosDeTurno(db, resultado.turnoReprogramado as string).length,
+    ).toBe(0);
+  });
+
+  it('4.3 Dado un turno con un enviado y un pendiente Cuando reprogramo Entonces el enviado se conserva y el nuevo se programa', () => {
+    const inicioMs = Date.now() + 10 * DIA_MS;
+    const turnoId = crearTurnoTest(db, {
+      inicio: new Date(inicioMs).toISOString(),
+      fin: new Date(inicioMs + 30 * 60 * 1000).toISOString(),
+    });
+    sembrarRecordatorio(db, {
+      turnoId,
+      tipo: 'recordatorio_48h',
+      estado: 'enviado',
+      enviadoEn: new Date().toISOString(),
+      programadoPara: new Date(inicioMs - 48 * 60 * 60 * 1000).toISOString(),
+    });
+    sembrarRecordatorio(db, {
+      turnoId,
+      tipo: 'recordatorio_24h',
+      estado: 'pendiente',
+      programadoPara: new Date(inicioMs - 24 * 60 * 60 * 1000).toISOString(),
+    });
+    const token = crearTokenTest(db, {
+      turnoId,
+      accion: 'reprogramar',
+      tokenClaro: 'tok-reprogramar-mixto',
+    });
+    const nuevoMs = Date.now() + 7 * DIA_MS;
+
+    const resultado = ejecutarAccionTurno(
+      db,
+      {
+        turnoId,
+        accion: 'reprogramar',
+        token,
+        nuevoInicio: new Date(nuevoMs).toISOString(),
+        nuevoFin: new Date(nuevoMs + 30 * 60 * 1000).toISOString(),
+      },
+      AUTH,
+    );
+
+    const viejos = leerRecordatoriosDeTurno(db, turnoId);
+    expect(viejos.find((f) => f.tipo === 'recordatorio_48h')!.estado).toBe('enviado');
+    expect(viejos.find((f) => f.tipo === 'recordatorio_24h')!.estado).toBe('cancelado');
+    expect(
+      leerRecordatoriosDeTurno(db, resultado.turnoReprogramado as string).length,
+    ).toBe(2);
+  });
+});

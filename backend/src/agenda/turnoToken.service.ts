@@ -14,7 +14,10 @@ import type { PacienteId, PrestacionId, ProfesionalId, SillonId, TurnoEstado, Tu
 import { BloqueoRepository } from './bloqueo.repository.js';
 import { TurnoRepository, type TurnoRow } from './turno.repository.js';
 import { puedeTransicionar } from './turnoEstado.service.js';
-import { cancelarRecordatoriosDeTurno } from '../notificaciones/recordatorio.worker.js';
+import {
+  cancelarRecordatoriosDeTurno,
+  programarRecordatoriosSeguro,
+} from '../notificaciones/recordatorio.worker.js';
 import { normalizarUtc } from './crearTurno.service.js';
 
 export type AccionTurno = 'confirmar' | 'cancelar' | 'reprogramar';
@@ -57,7 +60,8 @@ export function ejecutarAccionTurno(
   config: AppConfig,
 ): TurnoActualizado {
   const uow = new UnitOfWork(db);
-  return uow.runInTransaction(() => {
+  const turnos = new TurnoRepository(db);
+  const resultado = uow.runInTransaction((): TurnoActualizado => {
     const tokenHash = hashToken(input.token);
     const ahora = new Date();
     const ahoraIso = ahora.toISOString();
@@ -118,7 +122,6 @@ export function ejecutarAccionTurno(
     }
 
     // 5. Validar existencia del turno.
-    const turnos = new TurnoRepository(db);
     const turnoActual = turnos.findById(input.turnoId) as TurnoRow | undefined;
     if (turnoActual === undefined) {
       throw new TurnoEstadoError({
@@ -309,5 +312,37 @@ export function ejecutarAccionTurno(
         : {}),
     };
   });
+
+  // Programación post-commit (design D1/D2/D10): `runInTransaction` no anida y
+  // `programarRecordatoriosParaTurno` abre su propio BEGIN IMMEDIATE. El `inicio`
+  // se relee de la fila ya confirmada, sin agregar campos al retorno HTTP.
+  if (input.accion === 'confirmar') {
+    const confirmado = turnos.findById(input.turnoId);
+    if (confirmado !== undefined) {
+      programarRecordatoriosSeguro(
+        db,
+        confirmado.id,
+        confirmado.inicio,
+        config.recordatorio,
+      );
+    }
+  } else if (input.accion === 'reprogramar') {
+    // 4.2: el turno nuevo (origen 'online') también se programa post-commit.
+    // Sus hitos T-48h/T-24h se calculan desde el `inicio` re-leído de la fila.
+    const reprogramadoId = resultado.turnoReprogramado;
+    if (reprogramadoId !== undefined) {
+      const nuevo = turnos.findById(reprogramadoId);
+      if (nuevo !== undefined) {
+        programarRecordatoriosSeguro(
+          db,
+          nuevo.id,
+          nuevo.inicio,
+          config.recordatorio,
+        );
+      }
+    }
+  }
+
+  return resultado;
 }
 

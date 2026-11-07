@@ -13,6 +13,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "seed": "tsc -p tsconfig.json && node --env-file-if-exists=.env dist/src/shared/seed-cli.js",
+    "backfill:recordatorios": "tsc -p tsconfig.json && node --env-file-if-exists=.env dist/src/shared/recordatorio-backfill-cli.js",
     "ci": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

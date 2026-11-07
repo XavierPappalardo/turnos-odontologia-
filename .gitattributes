@@ -1,0 +1,3 @@
+# Normalize text files to LF in the repository and the working tree.
+# core.autocrlf is true on Windows checkouts; this rule wins over it.
+* text=auto eol=lf

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * C-04 máquina de estados de Turno (KB-04 §9).
  * `reservado → confirmado → presente → atendido`,
  * `reservado|confirmado → cancelado`, `confirmado → ausente`.
@@ -17,6 +17,10 @@ import { openDatabase } from '../src/shared/repository.js';
 import { SEED_IDS, seedMinimo } from '../src/shared/seed.js';
 import type { Rol, TurnoEstado, TurnoId } from '../src/shared/types.js';
 import type { AppConfig } from '../src/shared/config.js';
+import {
+  leerRecordatoriosDeTurno,
+  sembrarRecordatorio,
+} from './helpers/agenda-fixtures.js';
 
 const AUTH: AuthConfig = {
   jwtSecret: 'test-secret-con-mas-de-32-caracteres-estado',
@@ -84,6 +88,7 @@ let contador = 0;
 
 function crearTurnoBase(
   estadoInicial: TurnoEstado = 'reservado',
+  inicio = '2026-11-02T10:00:00.000Z',
 ): string {
   const id = `turno-estado-${String(++contador).padStart(4, '0')}`;
   const repo = new TurnoRepository(db);
@@ -92,8 +97,8 @@ function crearTurnoBase(
     profesionalId: SEED_IDS.profesional as never,
     sillonId: SEED_IDS.sillon as never,
     pacienteId: SEED_IDS.paciente as never,
-    inicio: '2026-11-02T10:00:00.000Z',
-    fin: '2026-11-02T10:30:00.000Z',
+    inicio,
+    fin: new Date(new Date(inicio).getTime() + 30 * 60 * 1000).toISOString(),
     estado: estadoInicial,
     origen: 'recepcion',
   });
@@ -115,21 +120,21 @@ describe('Dado un turno reservado Cuando recorro la cadena válida Entonces pers
       turnoId: id,
       nuevoEstado: 'confirmado',
       rol: 'recepcion',
-    });
+    }, APP_CONFIG.recordatorio);
     expect(confirmado.estado).toBe('confirmado');
 
     const presente = cambiarEstadoTurno(db, {
       turnoId: id,
       nuevoEstado: 'presente',
       rol: 'recepcion',
-    });
+    }, APP_CONFIG.recordatorio);
     expect(presente.estado).toBe('presente');
 
     const atendido = cambiarEstadoTurno(db, {
       turnoId: id,
       nuevoEstado: 'atendido',
       rol: 'administracion',
-    });
+    }, APP_CONFIG.recordatorio);
     expect(atendido.estado).toBe('atendido');
     expect(estadoDe(id)).toBe('atendido');
   });
@@ -141,7 +146,7 @@ describe('Dado un turno reservado Cuando recorro la cadena válida Entonces pers
         turnoId: cancelable,
         nuevoEstado: 'cancelado',
         rol: 'recepcion',
-      }).estado,
+      }, APP_CONFIG.recordatorio).estado,
     ).toBe('cancelado');
 
     const ausente = crearTurnoBase('confirmado');
@@ -150,7 +155,7 @@ describe('Dado un turno reservado Cuando recorro la cadena válida Entonces pers
         turnoId: ausente,
         nuevoEstado: 'ausente',
         rol: 'recepcion',
-      }).estado,
+      }, APP_CONFIG.recordatorio).estado,
     ).toBe('ausente');
   });
 });
@@ -175,7 +180,7 @@ describe('Dado un turno Cuando intento una transición inválida Entonces 409 y 
           turnoId: id,
           nuevoEstado: hacia,
           rol: 'recepcion',
-        }),
+        }, APP_CONFIG.recordatorio),
       ).toThrowError(
         expect.objectContaining({ status: 409, code: 'transicion_invalida' }),
       );
@@ -190,7 +195,7 @@ describe('Dado un turno Cuando intento una transición inválida Entonces 409 y 
         turnoId: id,
         nuevoEstado: 'volando',
         rol: 'recepcion',
-      }),
+      }, APP_CONFIG.recordatorio),
     ).toThrowError(expect.objectContaining({ status: 400, code: 'validacion' }));
   });
 
@@ -200,7 +205,7 @@ describe('Dado un turno Cuando intento una transición inválida Entonces 409 y 
         turnoId: 'turno-inexistente',
         nuevoEstado: 'confirmado',
         rol: 'recepcion',
-      }),
+      }, APP_CONFIG.recordatorio),
     ).toThrowError(expect.objectContaining({ status: 404, code: 'not_found' }));
   });
 
@@ -211,7 +216,7 @@ describe('Dado un turno Cuando intento una transición inválida Entonces 409 y 
         turnoId: id,
         nuevoEstado: 'confirmado',
         rol: 'profesional',
-      }),
+      }, APP_CONFIG.recordatorio),
     ).toThrowError(expect.objectContaining({ status: 403, code: 'forbidden' }));
     expect(estadoDe(id)).toBe('reservado');
   });
@@ -235,42 +240,120 @@ describe('Dado el grafo de transiciones Cuando lo inspecciono Entonces coincide 
 
 describe('Dado un turno cancelado Cuando reservo el mismo hueco Entonces se libera', () => {
   it('cancelar permite crear otro turno en el mismo profesional/sillón/horario', () => {
-    const primero = crearTurno(db, {
-      profesionalId: SEED_IDS.profesional,
-      sillonId: SEED_IDS.sillon,
-      pacienteId: SEED_IDS.paciente,
-      inicio: '2026-11-03T09:00:00.000Z',
-      fin: '2026-11-03T09:30:00.000Z',
-      rol: 'recepcion',
-    });
-
-    expect(() =>
-      crearTurno(db, {
+    const primero = crearTurno(
+      db,
+      {
         profesionalId: SEED_IDS.profesional,
         sillonId: SEED_IDS.sillon,
         pacienteId: SEED_IDS.paciente,
         inicio: '2026-11-03T09:00:00.000Z',
         fin: '2026-11-03T09:30:00.000Z',
         rol: 'recepcion',
-      }),
+      },
+      APP_CONFIG.recordatorio,
+    );
+
+    expect(() =>
+      crearTurno(
+        db,
+        {
+          profesionalId: SEED_IDS.profesional,
+          sillonId: SEED_IDS.sillon,
+          pacienteId: SEED_IDS.paciente,
+          inicio: '2026-11-03T09:00:00.000Z',
+          fin: '2026-11-03T09:30:00.000Z',
+          rol: 'recepcion',
+        },
+        APP_CONFIG.recordatorio,
+      ),
     ).toThrowError(expect.objectContaining({ status: 409 }));
 
     cambiarEstadoTurno(db, {
       turnoId: primero.id,
       nuevoEstado: 'cancelado',
       rol: 'recepcion',
-    });
+    }, APP_CONFIG.recordatorio);
 
-    const segundo = crearTurno(db, {
-      profesionalId: SEED_IDS.profesional,
-      sillonId: SEED_IDS.sillon,
-      pacienteId: SEED_IDS.paciente,
-      inicio: '2026-11-03T09:00:00.000Z',
-      fin: '2026-11-03T09:30:00.000Z',
-      rol: 'recepcion',
-    });
+    const segundo = crearTurno(
+      db,
+      {
+        profesionalId: SEED_IDS.profesional,
+        sillonId: SEED_IDS.sillon,
+        pacienteId: SEED_IDS.paciente,
+        inicio: '2026-11-03T09:00:00.000Z',
+        fin: '2026-11-03T09:30:00.000Z',
+        rol: 'recepcion',
+      },
+      APP_CONFIG.recordatorio,
+    );
     expect(segundo.estado).toBe('reservado');
     expect(segundo.id).not.toBe(primero.id);
+  });
+});
+
+describe('Dado un turno reservado Cuando se confirma Entonces se programan los recordatorios (c-07-fix)', () => {
+  it('3.1a Dado un turno sin recordatorios e inicio a +7 días Cuando se confirma Entonces quedan dos pendientes', () => {
+    const inicio = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const id = crearTurnoBase('reservado', inicio);
+
+    cambiarEstadoTurno(
+      db,
+      { turnoId: id, nuevoEstado: 'confirmado', rol: 'recepcion' },
+      APP_CONFIG.recordatorio,
+    );
+
+    expect(estadoDe(id)).toBe('confirmado');
+    const filas = leerRecordatoriosDeTurno(db, id);
+    expect(filas.length).toBe(2);
+    expect(filas.every((f) => f.estado === 'pendiente')).toBe(true);
+  });
+
+  it('3.1b Dado un turno con recordatorios ya programados Cuando se confirma Entonces no se duplican', () => {
+    const inicio = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const id = crearTurnoBase('reservado', inicio);
+    sembrarRecordatorio(db, { turnoId: id, tipo: 'recordatorio_48h' });
+    sembrarRecordatorio(db, { turnoId: id, tipo: 'recordatorio_24h' });
+
+    cambiarEstadoTurno(
+      db,
+      { turnoId: id, nuevoEstado: 'confirmado', rol: 'recepcion' },
+      APP_CONFIG.recordatorio,
+    );
+
+    expect(estadoDe(id)).toBe('confirmado');
+    expect(leerRecordatoriosDeTurno(db, id).length).toBe(2);
+  });
+
+  it('3.3a Dado un turno con inicio a +1 hora Cuando se confirma Entonces queda confirmado sin recordatorios', () => {
+    const inicio = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const id = crearTurnoBase('reservado', inicio);
+
+    cambiarEstadoTurno(
+      db,
+      { turnoId: id, nuevoEstado: 'confirmado', rol: 'recepcion' },
+      APP_CONFIG.recordatorio,
+    );
+
+    expect(estadoDe(id)).toBe('confirmado');
+    expect(leerRecordatoriosDeTurno(db, id).length).toBe(0);
+  });
+
+  it('3.3b Dado un turno confirmado con pendientes Cuando pasa a presente Entonces no cancela ni altera los pendientes', () => {
+    const inicio = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const id = crearTurnoBase('confirmado', inicio);
+    sembrarRecordatorio(db, { turnoId: id, tipo: 'recordatorio_48h' });
+    sembrarRecordatorio(db, { turnoId: id, tipo: 'recordatorio_24h' });
+
+    cambiarEstadoTurno(
+      db,
+      { turnoId: id, nuevoEstado: 'presente', rol: 'recepcion' },
+      APP_CONFIG.recordatorio,
+    );
+
+    expect(estadoDe(id)).toBe('presente');
+    const filas = leerRecordatoriosDeTurno(db, id);
+    expect(filas.length).toBe(2);
+    expect(filas.every((f) => f.estado === 'pendiente')).toBe(true);
   });
 });
 

@@ -16,6 +16,7 @@ import { openDatabase } from '../src/shared/repository.js';
 import type { AppConfig } from '../src/shared/config.js';
 import type { PacienteId, ProfesionalId, SillonId } from '../src/shared/types.js';
 import { reservarTurnoOnline } from '../src/agenda/reservaOnline.service.js';
+import { leerRecordatoriosDeTurno } from './helpers/agenda-fixtures.js';
 
 const AUTH: AppConfig = {
   port: 0,
@@ -354,7 +355,7 @@ describe('Dado servicio reservarTurnoOnline Cuando el turno es válido Entonces 
       pacienteId: PAC,
       inicio: futuro,
       fin: new Date(new Date(futuro).getTime() + 30 * 60 * 1000).toISOString(),
-    }, AUTH.reservaOnline.anticipacionMinSegundos);
+    }, AUTH.reservaOnline.anticipacionMinSegundos, AUTH.recordatorio);
     expect(creado.origen).toBe('online');
     expect(creado.estado).toBe('reservado');
     expect(new TurnoRepository(db).countAll()).toBe(antes + 1);
@@ -365,6 +366,55 @@ describe('Dado servicio reservarTurnoOnline Cuando el turno es válido Entonces 
     const prof = PROF as ProfesionalId;
     const distintos: boolean = (pac as string) !== (prof as string);
     expect(distintos).toBe(true);
+  });
+});
+
+// ── 2.x Cableado de recordatorios en la reserva online (c-07-fix) ───────────
+describe('Dado el servicio reservarTurnoOnline Cuando el turno tiene inicio futuro Entonces programa recordatorios', () => {
+  it('2.1b Dado inicio a +7 días Cuando reservo online Entonces origen online con dos pendientes', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const creado = reservarTurnoOnline(
+      db,
+      {
+        profesionalId: PROF,
+        sillonId: SILLA,
+        pacienteId: PAC,
+        inicio,
+        fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+      },
+      AUTH.reservaOnline.anticipacionMinSegundos,
+      AUTH.recordatorio,
+    );
+
+    expect(creado.origen).toBe('online');
+    expect(creado.estado).toBe('reservado');
+    const filas = leerRecordatoriosDeTurno(db, creado.id);
+    expect(filas.length).toBe(2);
+    expect(filas.map((f) => f.tipo)).toEqual([
+      'recordatorio_24h',
+      'recordatorio_48h',
+    ]);
+    expect(filas.every((f) => f.estado === 'pendiente')).toBe(true);
+  });
+
+  it('2.1b2 Dado inicio a +1 hora y sin anticipación mínima Cuando reservo online Entonces no hay recordatorios', () => {
+    const baseMs = Date.now() + 60 * 60 * 1000;
+    const creado = reservarTurnoOnline(
+      db,
+      {
+        profesionalId: PROF,
+        sillonId: SILLA,
+        pacienteId: PAC,
+        inicio: new Date(baseMs).toISOString(),
+        fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+      },
+      0,
+      AUTH.recordatorio,
+    );
+
+    expect(creado.estado).toBe('reservado');
+    expect(leerRecordatoriosDeTurno(db, creado.id).length).toBe(0);
   });
 });
 
@@ -411,4 +461,3 @@ describe('Dado hueco libre Cuando dos escrituras concurrentes públicas Entonces
     }
   });
 });
-

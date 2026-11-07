@@ -8,8 +8,12 @@ import type { DatabaseSync } from 'node:sqlite';
 import { puedeCambiarEstadoTurno, type Rol } from '../shared/auth.js';
 import { TurnoEstadoError } from '../shared/errors.js';
 import type { TurnoEstado, TurnoId } from '../shared/types.js';
+import type { RecordatorioConfig } from '../shared/config.js';
 import { TurnoRepository, type TurnoRow } from './turno.repository.js';
-import { cancelarRecordatoriosDeTurno } from '../notificaciones/recordatorio.worker.js';
+import {
+  cancelarRecordatoriosDeTurno,
+  programarRecordatoriosSeguro,
+} from '../notificaciones/recordatorio.worker.js';
 
 export const TRANSICIONES: Readonly<Record<TurnoEstado, readonly TurnoEstado[]>> = {
   reservado: ['confirmado', 'cancelado'],
@@ -40,6 +44,7 @@ export interface CambiarEstadoInput {
 export function cambiarEstadoTurno(
   db: DatabaseSync,
   input: CambiarEstadoInput,
+  recordatorioConfig: RecordatorioConfig,
 ): TurnoRow {
   if (!esEstadoValido(input.nuevoEstado)) {
     throw new TurnoEstadoError({
@@ -96,5 +101,16 @@ export function cambiarEstadoTurno(
     cancelarRecordatoriosDeTurno(db, input.turnoId);
   }
 
-  return turnos.findById(input.turnoId) as TurnoRow;
+  const fila = turnos.findById(input.turnoId) as TurnoRow;
+
+  if (input.nuevoEstado === 'confirmado') {
+    // Programación al confirmar (design D1/D10). Este servicio NO abre
+    // transacción (CAS de una sola fila), por eso puede programar directo.
+    // INVARIANTE: no invocar cambiarEstadoTurno desde dentro de un
+    // `runInTransaction`; si un caller futuro lo necesita, debe programar
+    // post-commit con `programarRecordatoriosSeguro` (design D2).
+    programarRecordatoriosSeguro(db, fila.id, fila.inicio, recordatorioConfig);
+  }
+
+  return fila;
 }

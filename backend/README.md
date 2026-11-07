@@ -27,6 +27,20 @@ Forma parte del cimiento `C-01` (`platform/foundation`) y sobre él implementa
 > `PORT`, `DATABASE_PATH`, `NODE_ENV` y `JWT_SECRET` (mínimo 32 caracteres). Copiá el
 > ejemplo antes de arrancar: `cp .env.example .env` (el `.env` está gitignored, R15).
 
+## Backfill de recordatorios (c-07-fix)
+
+```sh
+npm run backfill:recordatorios
+```
+
+- **Cuándo:** una vez por base, después del deploy del change `c-07-fix-programacion-recordatorios`
+  (repara los turnos futuros activos que quedaron sin recordatorios programados).
+- **Qué hace:** recorre los turnos futuros vigentes (`reservado`/`confirmado`,
+  `deleted_at IS NULL`) y programa los hitos T-48h/T-24h usando la misma
+  programación idempotente del worker.
+- **Idempotente:** se puede correr más de una vez sin duplicar filas; el output es
+  sólo un conteo de turnos procesados (sin PHI, R3).
+
 ## Auth (C-03)
 
 - `POST /api/auth/login` → access token JWT HS256 en el body + refresh en cookie
