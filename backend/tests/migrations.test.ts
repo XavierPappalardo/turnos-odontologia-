@@ -55,7 +55,7 @@ describe('runMigrations', () => {
     try {
       const first = runMigrations(db);
       expect(first).toEqual([
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
       ]);
       const before = tableNames(db);
       let second: readonly string[] = ['<sin-correr>'];
@@ -71,7 +71,7 @@ describe('runMigrations', () => {
 
   it('Dado runMigrations Cuando registro Entonces ids ordenados ascendente', () => {
     expect(MIGRATIONS.map((m) => m.id)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
     ]);
   });
 
@@ -79,7 +79,7 @@ describe('runMigrations', () => {
     const db = openDatabase(':memory:');
     try {
       expect(appliedIds(db)).toEqual([
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013',
       ]);
     } finally {
       db.close();

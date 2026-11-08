@@ -33,6 +33,7 @@ export interface PrestacionRow extends AuditRow {
   codigo: string;
   nombre: string;
   duracion_min: number;
+  precio_base_centavos?: number;
   activo: number;
 }
 

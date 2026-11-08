@@ -405,7 +405,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-15] `precios-publicos-ars`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-08-c-15-precios-publicos-ars/`)
 - **Scope**: Precios públicos en ARS (F-12) — transversal
   - Configuración/catalogo con precios en ARS
   - Validaciones monetarias (centavos), moneda ARS

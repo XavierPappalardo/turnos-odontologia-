@@ -159,7 +159,8 @@ describe('Migración 012 - comisiones (C-13)', () => {
   it('Dado MIGRATIONS Cuando lista migraciones Entonces incluye 011 y 012 al final', () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(ids).toContain('011');
-    expect(ids[ids.length - 1]).toBe('012');
+    expect(ids).toContain('012');
+    expect(ids[ids.length - 1]).toBe('013');
   });
 
   it('Dado BD nueva Cuando corre runMigrations Entonces crea las 6 tablas de C-13', () => {

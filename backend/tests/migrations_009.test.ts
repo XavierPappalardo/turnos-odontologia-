@@ -34,7 +34,7 @@ describe('Migración 009 - presupuesto y item_presupuesto', () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(ids).toContain('009');
     expect(ids[9]).toBe('010'); // columna por C-11 justo tras 009
-    expect(ids[ids.length - 1]).toBe('012');
+    expect(ids[ids.length - 1]).toBe('013');
   });
 
   it('Dado BD nueva Cuando corro migraciones 001→009 Entonces crean presupuesto e item_presupuesto', () => {

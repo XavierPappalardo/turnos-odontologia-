@@ -717,6 +717,12 @@ CREATE TRIGGER com_evento_no_delete BEFORE DELETE ON liquidacion_comision_evento
 BEGIN SELECT RAISE(ABORT, 'liquidacion_comision_evento es insert-only'); END;
 `;
 
+export const MIGRATION_013_PRECIOS_PUBLICOS = `
+-- C-15: Precios públicos en ARS (F-12 / RN-12 / D7).
+-- Incorpora precio base en centavos enteros (moneda ARS) con constraint >= 0.
+ALTER TABLE prestacion ADD COLUMN precio_base_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_base_centavos >= 0);
+`;
+
 /**
  * Registro ordenado de migraciones (design D4). La migración base 001 crea las
  * tablas núcleo. El orden del array ES el orden de aplicación.
@@ -734,6 +740,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '010', sql: MIGRATION_010_CAJA },
   { id: '011', sql: MIGRATION_011_OBRAS_SOCIALES },
   { id: '012', sql: MIGRATION_012_COMISIONES },
+  { id: '013', sql: MIGRATION_013_PRECIOS_PUBLICOS },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */
