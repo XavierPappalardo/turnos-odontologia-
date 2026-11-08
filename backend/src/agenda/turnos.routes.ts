@@ -4,7 +4,8 @@
  */
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
-import type { AuthConfig, AuthContext } from '../auth/types.js';
+import type { AuthContext } from '../auth/types.js';
+import type { AppConfig } from '../shared/config.js';
 import { getAuth, requireAuth, requireRoles } from '../auth/middleware.js';
 import type { Rol } from '../shared/auth.js';
 import { crearTurno } from './crearTurno.service.js';
@@ -18,7 +19,7 @@ function rolEfectivo(auth: AuthContext): Rol | undefined {
   return auth.roles[0];
 }
 
-export function turnosRouter(db: DatabaseSync, config: AuthConfig): Router {
+export function turnosRouter(db: DatabaseSync, config: AppConfig): Router {
   const router = Router();
   const autenticado = requireAuth(config.jwtSecret, db);
 
@@ -36,20 +37,24 @@ export function turnosRouter(db: DatabaseSync, config: AuthConfig): Router {
           inicio?: unknown;
           fin?: unknown;
         };
-        const creado = crearTurno(db, {
-          profesionalId:
-            typeof body.profesional_id === 'string' ? body.profesional_id : '',
-          sillonId: typeof body.sillon_id === 'string' ? body.sillon_id : '',
-          pacienteId:
-            typeof body.paciente_id === 'string' ? body.paciente_id : '',
-          prestacionId:
-            typeof body.prestacion_id === 'string'
-              ? body.prestacion_id
-              : undefined,
-          inicio: typeof body.inicio === 'string' ? body.inicio : '',
-          fin: typeof body.fin === 'string' ? body.fin : '',
-          rol: rolEfectivo(getAuth(res)),
-        });
+        const creado = crearTurno(
+          db,
+          {
+            profesionalId:
+              typeof body.profesional_id === 'string' ? body.profesional_id : '',
+            sillonId: typeof body.sillon_id === 'string' ? body.sillon_id : '',
+            pacienteId:
+              typeof body.paciente_id === 'string' ? body.paciente_id : '',
+            prestacionId:
+              typeof body.prestacion_id === 'string'
+                ? body.prestacion_id
+                : undefined,
+            inicio: typeof body.inicio === 'string' ? body.inicio : '',
+            fin: typeof body.fin === 'string' ? body.fin : '',
+            rol: rolEfectivo(getAuth(res)),
+          },
+          config.recordatorio,
+        );
         res.status(201).json({
           id: creado.id,
           profesional_id: creado.profesionalId,
@@ -78,11 +83,15 @@ export function turnosRouter(db: DatabaseSync, config: AuthConfig): Router {
           res.status(400).json({ error: 'validacion' });
           return;
         }
-        const actualizado = cambiarEstadoTurno(db, {
-          turnoId,
-          nuevoEstado: body.estado,
-          rol: rolEfectivo(getAuth(res)),
-        });
+        const actualizado = cambiarEstadoTurno(
+          db,
+          {
+            turnoId,
+            nuevoEstado: body.estado,
+            rol: rolEfectivo(getAuth(res)),
+          },
+          config.recordatorio,
+        );
         res.status(200).json({
           id: actualizado.id,
           estado: actualizado.estado,

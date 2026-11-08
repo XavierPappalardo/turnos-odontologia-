@@ -18,6 +18,8 @@ import type {
 } from '../shared/types.js';
 import { BloqueoRepository } from './bloqueo.repository.js';
 import { TurnoRepository, type TurnoRow } from './turno.repository.js';
+import { programarRecordatoriosSeguro } from '../notificaciones/recordatorio.worker.js';
+import type { RecordatorioConfig } from '../shared/config.js';
 
 export interface CrearTurnoInput {
   profesionalId: string;
@@ -74,9 +76,13 @@ function exigirFk(
   }
 }
 
-export function crearTurno(db: DatabaseSync, input: CrearTurnoInput): TurnoCreado {
+export function crearTurno(
+  db: DatabaseSync,
+  input: CrearTurnoInput,
+  recordatorioConfig: RecordatorioConfig,
+): TurnoCreado {
   const uow = new UnitOfWork(db);
-  return uow.runInTransaction(() => {
+  const creado = uow.runInTransaction((): TurnoCreado => {
     if (
       input.profesionalId === '' ||
       input.sillonId === '' ||
@@ -181,4 +187,10 @@ export function crearTurno(db: DatabaseSync, input: CrearTurnoInput): TurnoCread
       origen: 'recepcion',
     };
   });
+
+  // Programación post-commit (design D1/D2): `runInTransaction` no anida y la
+  // programación abre su propio BEGIN IMMEDIATE. Best-effort: nunca aborta la
+  // creación ya confirmada (design D3).
+  programarRecordatoriosSeguro(db, creado.id, creado.inicio, recordatorioConfig);
+  return creado;
 }

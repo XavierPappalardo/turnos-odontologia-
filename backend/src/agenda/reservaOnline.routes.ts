@@ -69,7 +69,12 @@ export function reservaOnlineRouter(
           inicio: typeof body.inicio === 'string' ? body.inicio : '',
           fin: typeof body.fin === 'string' ? body.fin : '',
         };
-        const creado = reservarTurnoOnline(db, input, config.reservaOnline.anticipacionMinSegundos);
+        const creado = reservarTurnoOnline(
+          db,
+          input,
+          config.reservaOnline.anticipacionMinSegundos,
+          config.recordatorio,
+        );
         res.status(201).json({
           id: creado.id,
           profesional_id: creado.profesionalId,

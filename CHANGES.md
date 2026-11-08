@@ -251,6 +251,8 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 
 ### [C-07] `recordatorios-automaticos`
 - **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-01-c-07-recordatorios-automaticos/`)
+- **Follow-up**: `c-07-fix-programacion-recordatorios` (2026-11-06): cableado post-commit
+  de la programación en crear/reprogramar/confirmar + backfill operativo idempotente.
 - **Scope**: Recordatorios automáticos con actualización sola de la agenda (F-04)
   - Tareas/worker para recordatorios (programación por fecha/hora de turno)
   - Canales: WhatsApp + email (estructura configurable)

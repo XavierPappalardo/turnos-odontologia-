@@ -195,7 +195,7 @@ describe('Dado un bloqueo vigente Cuando crearTurno lo intersecta y luego se da 
 
     // Cuando: bloqueo vigente
     const rechazo = capturarError(() => {
-      crearTurno(db, input);
+      crearTurno(db, input, APP_CONFIG.recordatorio);
     });
 
     // Entonces: 409 eje=bloqueo y sin turno persistido
@@ -208,7 +208,7 @@ describe('Dado un bloqueo vigente Cuando crearTurno lo intersecta y luego se da 
       new Date().toISOString(),
       bloqueoId,
     );
-    const creado = crearTurno(db, input);
+    const creado = crearTurno(db, input, APP_CONFIG.recordatorio);
 
     // Entonces: el bloqueo dado de baja ya no aplica
     expect(creado.estado).toBe('reservado');

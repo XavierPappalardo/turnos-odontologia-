@@ -1,15 +1,26 @@
-/**
+﻿/**
  * Escenarios Vitest Dado/Cuando/Entonces — C-07 recordatorios automáticos.
  * SQLite real en memoria (R12: sin mock de transacción).
  * Fixtures estrictamente ficticios (R1/R12). Sin floats (R2 N/A).
  */
 import { DatabaseSync } from 'node:sqlite';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+import { hashToken } from '../src/auth/tokens.js';
 import { cambiarEstadoTurno } from '../src/agenda/turnoEstado.service.js';
 import { crearTurno } from '../src/agenda/crearTurno.service.js';
 import { TurnoRepository } from '../src/agenda/turno.repository.js';
-import { programarRecordatoriosParaTurno, procesarRecordatoriosPendientes, cancelarRecordatoriosDeTurno } from '../src/notificaciones/recordatorio.worker.js';
+import {
+  programarRecordatoriosParaTurno,
+  programarRecordatoriosSeguro,
+  programarRecordatoriosDeTurnosFuturos,
+  procesarRecordatoriosPendientes,
+  cancelarRecordatoriosDeTurno,
+} from '../src/notificaciones/recordatorio.worker.js';
+import {
+  leerRecordatoriosDeTurno,
+  sembrarRecordatorio,
+} from './helpers/agenda-fixtures.js';
 import { createApp } from '../src/shared/app.js';
 import { openDatabase } from '../src/shared/repository.js';
 import type { AppConfig } from '../src/shared/config.js';
@@ -105,13 +116,14 @@ afterEach(() => {
 // ── Programar recordatorios ─────────────────────────────────────────────────
 describe('Programar recordatorios para un turno', () => {
   it('Dado turno confirmado con inicio en el futuro Cuando programo recordatorios Entonces se crean 2 pendientes (48h y 24h)', () => {
-    const turnoId = crearTurnoTest(db, {
-      inicio: '2026-11-05T10:00:00.000Z',
-      fin: '2026-11-05T10:30:00.000Z',
-      estado: 'confirmado',
-    });
+    // Fechas relativas: el worker solo programa hitos futuros (spec C-07), por lo
+    // que un literal absoluto caduca en cuanto pasa la fecha y el test se rompe.
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const fin = new Date(baseMs + 30 * 60 * 1000).toISOString();
+    const turnoId = crearTurnoTest(db, { inicio, fin, estado: 'confirmado' });
 
-    programarRecordatoriosParaTurno(db, turnoId, '2026-11-05T10:00:00.000Z', AUTH.recordatorio);
+    programarRecordatoriosParaTurno(db, turnoId, inicio, AUTH.recordatorio);
 
     const pendientes = db
       .prepare(`SELECT id, tipo, estado FROM recordatorio WHERE turno_id = ?`)
@@ -139,18 +151,107 @@ describe('Programar recordatorios para un turno', () => {
   });
 
   it('Dado programar dos veces para el mismo turno Cuando llamo otra vez Entonces no se duplican', () => {
-    const turnoId = crearTurnoTest(db, {
-      inicio: '2026-11-05T10:00:00.000Z',
-      fin: '2026-11-05T10:30:00.000Z',
-    });
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const fin = new Date(baseMs + 30 * 60 * 1000).toISOString();
+    const turnoId = crearTurnoTest(db, { inicio, fin });
 
-    programarRecordatoriosParaTurno(db, turnoId, '2026-11-05T10:00:00.000Z', AUTH.recordatorio);
-    programarRecordatoriosParaTurno(db, turnoId, '2026-11-05T10:00:00.000Z', AUTH.recordatorio);
+    programarRecordatoriosParaTurno(db, turnoId, inicio, AUTH.recordatorio);
+    programarRecordatoriosParaTurno(db, turnoId, inicio, AUTH.recordatorio);
 
     const count = db
       .prepare(`SELECT COUNT(*) AS n FROM recordatorio WHERE turno_id = ?`)
       .get(turnoId) as { n: number };
     expect(count.n).toBe(2);
+  });
+});
+
+// ── 1.x Wrapper best-effort de programación (c-07-fix) ────────────────────
+const TRIGGER_FALLO =
+  `CREATE TRIGGER fallo_programacion BEFORE INSERT ON recordatorio
+   BEGIN SELECT RAISE(ABORT, 'fallo simulado'); END;`;
+
+describe('Dado el wrapper programarRecordatoriosSeguro Cuando programa o falla Entonces no propaga el error', () => {
+  it('1.1a Dado un turno futuro con config válida Cuando llamo al wrapper Entonces crea los dos pendientes', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const turnoId = crearTurnoTest(db, {
+      inicio,
+      fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+    });
+
+    programarRecordatoriosSeguro(db, turnoId, inicio, AUTH.recordatorio);
+
+    const filas = leerRecordatoriosDeTurno(db, turnoId);
+    expect(filas.length).toBe(2);
+    expect(filas.map((f) => f.tipo)).toEqual([
+      'recordatorio_24h',
+      'recordatorio_48h',
+    ]);
+    expect(filas.every((f) => f.estado === 'pendiente')).toBe(true);
+    expect(filas.every((f) => f.canal === 'whatsapp')).toBe(true);
+  });
+
+  it('1.1b Dado un trigger SQLite que aborta el INSERT Cuando llamo al wrapper Entonces no lanza, no deja filas y el turno sigue existiendo', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const turnoId = crearTurnoTest(db, {
+      inicio,
+      fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+    });
+
+    db.prepare(TRIGGER_FALLO).run();
+    try {
+      expect(() =>
+        programarRecordatoriosSeguro(db, turnoId, inicio, AUTH.recordatorio),
+      ).not.toThrow();
+      expect(leerRecordatoriosDeTurno(db, turnoId).length).toBe(0);
+      expect(new TurnoRepository(db).findById(turnoId)).toBeDefined();
+    } finally {
+      db.prepare('DROP TRIGGER fallo_programacion').run();
+    }
+  });
+
+  it('1.3a Dado el wrapper invocado dos veces Cuando reprogramo el mismo turno Entonces siguen siendo dos filas', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const turnoId = crearTurnoTest(db, {
+      inicio,
+      fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+    });
+
+    programarRecordatoriosSeguro(db, turnoId, inicio, AUTH.recordatorio);
+    programarRecordatoriosSeguro(db, turnoId, inicio, AUTH.recordatorio);
+
+    expect(leerRecordatoriosDeTurno(db, turnoId).length).toBe(2);
+  });
+
+  it('1.3b Dado un fallo de programación Cuando se registra Entonces el log sólo tiene turno_id y nombre de error', () => {
+    const baseMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inicio = new Date(baseMs).toISOString();
+    const turnoId = crearTurnoTest(db, {
+      inicio,
+      fin: new Date(baseMs + 30 * 60 * 1000).toISOString(),
+    });
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+
+    db.prepare(TRIGGER_FALLO).run();
+    try {
+      programarRecordatoriosSeguro(db, turnoId, inicio, AUTH.recordatorio);
+    } finally {
+      db.prepare('DROP TRIGGER fallo_programacion').run();
+      spy.mockRestore();
+    }
+
+    const log = logs.join('\n');
+    expect(log).toContain(turnoId);
+    expect(log).toMatch(/error=[A-Za-z]+/);
+    // Nunca el mensaje crudo de la excepción ni datos del paciente (R3).
+    expect(log).not.toMatch(/fallo simulado/);
+    expect(log).not.toMatch(/Ficticio|Paciente Ejemplo|DNI|dni|telefono|historia/i);
   });
 });
 
@@ -302,7 +403,11 @@ describe('Cancelar recordatorios al cambiar estado de turno', () => {
     );
 
     // Cambiar estado del turno a cancelado (usa cambiarEstadoTurno de C-06)
-    cambiarEstadoTurno(db, { turnoId, nuevoEstado: 'cancelado', rol: 'recepcion' });
+    cambiarEstadoTurno(
+      db,
+      { turnoId, nuevoEstado: 'cancelado', rol: 'recepcion' },
+      AUTH.recordatorio,
+    );
 
     const estados = db
       .prepare(`SELECT estado FROM recordatorio WHERE turno_id = ?`)
@@ -419,4 +524,228 @@ describe('Servicio directo de recordatorios', () => {
     expect(distintos).toBe(true);
   });
 });
-
+
+// ── Backfill operativo (c-07-fix) ───────────────────────────────────────────
+describe('Backfill operativo (c-07-fix)', () => {
+  const EN_MS = 24 * 60 * 60 * 1000;
+
+  /** `inicio` a `dias` del ahora; `fin` siempre 30 min después del inicio. */
+  function ficha(dias: number): { inicio: string; fin: string } {
+    const inicioMs = Date.now() + dias * EN_MS;
+    return {
+      inicio: new Date(inicioMs).toISOString(),
+      fin: new Date(inicioMs + 30 * 60 * 1000).toISOString(),
+    };
+  }
+
+  it('5.1 Dado turnos de distintos estados Cuando listo futuros Entonces solo reservado/confirmado vigentes ordenados', () => {
+    const reservadoId = crearTurnoTest(db, { ...ficha(3), estado: 'reservado' });
+    const confirmadoId = crearTurnoTest(db, { ...ficha(7), estado: 'confirmado' });
+    crearTurnoTest(db, { ...ficha(3), estado: 'cancelado' });
+    crearTurnoTest(db, { ...ficha(-1), estado: 'reservado' });
+    const eliminadoId = crearTurnoTest(db, { ...ficha(4), estado: 'reservado' });
+    db.prepare(`UPDATE turno SET deleted_at = ? WHERE id = ?`).run(
+      new Date().toISOString(),
+      eliminadoId,
+    );
+
+    const turnos = new TurnoRepository(db).listarFuturosActivos(new Date().toISOString());
+    const ids = turnos.map((t) => t.id);
+    expect(ids.length).toBe(2);
+    expect(ids).toContain(reservadoId);
+    expect(ids).toContain(confirmadoId);
+    expect(ids[0]).toBe(reservadoId); // +3 días antes que +7 (ASC)
+  });
+
+  it('Dado BD sin turnos Cuando listo futuros Entonces devuelve vacío', () => {
+    expect(
+      new TurnoRepository(db).listarFuturosActivos(new Date().toISOString()),
+    ).toEqual([]);
+  });
+
+  it('5.3a Dado turnos futuros Cuando corro backfill Entonces se programan pendientes y devuelve la cantidad', () => {
+    const inicioMs = Date.now() + 7 * EN_MS;
+    const turnoFuturo = crearTurnoTest(db, {
+      inicio: new Date(inicioMs).toISOString(),
+      fin: new Date(inicioMs + 30 * 60 * 1000).toISOString(),
+    });
+    crearTurnoTest(db, {
+      inicio: new Date(Date.now() - EN_MS).toISOString(),
+      fin: new Date(Date.now() - EN_MS + 30 * 60 * 1000).toISOString(),
+    });
+
+    const procesados = programarRecordatoriosDeTurnosFuturos(
+      db,
+      AUTH.recordatorio,
+      new Date().toISOString(),
+    );
+
+    expect(procesados).toBe(1); // solo el futuro (listarFuturosActivos excluye pasados)
+    const filas = leerRecordatoriosDeTurno(db, turnoFuturo);
+    expect(filas.length).toBe(2);
+    expect(filas.every((f) => f.estado === 'pendiente')).toBe(true);
+    const fila48h = filas.find((f) => f.tipo === 'recordatorio_48h');
+    const fila24h = filas.find((f) => f.tipo === 'recordatorio_24h');
+    expect(fila48h?.programado_para).toBe(
+      new Date(inicioMs - 48 * 60 * 60 * 1000).toISOString(),
+    );
+    expect(fila24h?.programado_para).toBe(
+      new Date(inicioMs - 24 * 60 * 60 * 1000).toISOString(),
+    );
+  });
+
+  it('5.3b Dado backfill repetido Cuando corro dos veces Entonces no duplica filas', () => {
+    const turnoId = crearTurnoTest(db, ficha(3));
+
+    const primera = programarRecordatoriosDeTurnosFuturos(
+      db,
+      AUTH.recordatorio,
+      new Date().toISOString(),
+    );
+    const segunda = programarRecordatoriosDeTurnosFuturos(
+      db,
+      AUTH.recordatorio,
+      new Date().toISOString(),
+    );
+
+    expect(primera).toBe(1);
+    expect(segunda).toBe(1);
+    expect(leerRecordatoriosDeTurno(db, turnoId).length).toBe(2);
+  });
+});
+
+// ── Integración HTTP (c-07-fix) ─────────────────────────────────────────────
+describe('Integración HTTP (c-07-fix)', () => {
+  /** `inicio`/`fin` relativos: turno a `ms` del ahora, duración 30 min. */
+  function fichaFutura(ms: number): { inicio: string; fin: string } {
+    const inicioMs = Date.now() + ms;
+    return {
+      inicio: new Date(inicioMs).toISOString(),
+      fin: new Date(inicioMs + 30 * 60 * 1000).toISOString(),
+    };
+  }
+
+  /** Siembra un `turno_token` de acción `cancelar` (patrón de turno_token.test.ts). */
+  function sembrarTokenCancelar(
+    db: DatabaseSync,
+    turnoId: string,
+    tokenClaro: string,
+  ): string {
+    const id = `token-http-${Math.random().toString(36).slice(2)}`;
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare(
+      `INSERT INTO turno_token (id, turno_id, token_hash, accion, expires_at, usado_en, created_at, updated_at)
+       VALUES (?, ?, ?, 'cancelar', ?, NULL, ?, ?)`,
+    ).run(id, turnoId, hashToken(tokenClaro), expiresAt, now, now);
+    return tokenClaro;
+  }
+
+  it('6.1 Dado pendiente vencido, pendiente futuro y enviado Cuando proceso por HTTP Entonces 200 con un único procesado y los otros dos conservan estado', async () => {
+    const turnoId = crearTurnoTest(db, fichaFutura(7 * 24 * 60 * 60 * 1000));
+    const vencido = sembrarRecordatorio(db, {
+      turnoId,
+      estado: 'pendiente',
+      programadoPara: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    });
+    const futuro = sembrarRecordatorio(db, {
+      turnoId,
+      tipo: 'recordatorio_24h',
+      estado: 'pendiente',
+      programadoPara: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    });
+    const yaEnviado = sembrarRecordatorio(db, {
+      turnoId,
+      estado: 'enviado',
+      enviadoEn: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const res = await request(createApp(db, AUTH))
+      .post('/api/public/recordatorios/procesar');
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.procesados[0].id).toBe(vencido);
+
+    const filas = leerRecordatoriosDeTurno(db, turnoId);
+    const estadoDe = (id: string): string =>
+      filas.find((f) => f.id === id)?.estado ?? '';
+    expect(estadoDe(vencido)).toBe('enviado');
+    expect(estadoDe(futuro)).toBe('pendiente');
+    expect(estadoDe(yaEnviado)).toBe('enviado');
+  });
+
+  it('6.2 Dado reserva online por HTTP Entonces 201 y lista 2 pendientes; cancelada por token Entonces 200 y los pendientes dejan de listarse', async () => {
+    // (a) Reserva online por HTTP: el cableado post-commit (grupo 2) programa los hitos.
+    const reserva = await request(createApp(db, AUTH))
+      .post('/api/public/turnos')
+      .send({
+        profesional_id: PROF,
+        sillon_id: SILLA,
+        paciente_id: PAC,
+        ...fichaFutura(7 * 24 * 60 * 60 * 1000),
+      });
+    expect(reserva.status).toBe(201);
+    const turnoId = reserva.body.id as string;
+
+    let res = await request(createApp(db, AUTH))
+      .get('/api/public/recordatorios/pendientes');
+    expect(res.status).toBe(200);
+    const delTurno = res.body.pendientes.filter(
+      (p: { turno_id: string }) => p.turno_id === turnoId,
+    );
+    expect(delTurno.length).toBe(2);
+
+    // (b) Cancelación por token: los pendientes se cancelan y dejan de listarse.
+    const token = sembrarTokenCancelar(db, turnoId, 'tok-c07-http-cancelar');
+    const cancela = await request(createApp(db, AUTH))
+      .post(`/api/public/turnos/${turnoId}/cancelar`)
+      .query({ token });
+    expect(cancela.status).toBe(200);
+    expect(cancela.body.estado).toBe('cancelado');
+
+    res = await request(createApp(db, AUTH))
+      .get('/api/public/recordatorios/pendientes');
+    expect(res.status).toBe(200);
+    expect(
+      res.body.pendientes.some(
+        (p: { turno_id: string }) => p.turno_id === turnoId,
+      ),
+    ).toBe(false);
+    expect(
+      leerRecordatoriosDeTurno(db, turnoId).every(
+        (f) => f.estado === 'cancelado',
+      ),
+    ).toBe(true);
+  });
+
+  it('6.3 Dado respuesta del GET /pendientes Cuando se lista Entonces no hay PHI y sólo campos operativos (ids/tipo/estado)', async () => {
+    const turnoId = crearTurnoTest(db, fichaFutura(7 * 24 * 60 * 60 * 1000));
+    sembrarRecordatorio(db, { turnoId, estado: 'pendiente' });
+
+    const res = await request(createApp(db, AUTH))
+      .get('/api/public/recordatorios/pendientes');
+
+    expect(res.status).toBe(200);
+    const cuerpo = JSON.stringify(res.body);
+    // Sin PHI (R3): ni nombre ficticio del paciente ni marcadores de datos clínicos.
+    expect(cuerpo).not.toMatch(/Ficticio|Paciente|DNI|dni|historia/i);
+    // Sólo campos operativos: ids opacos, tipo, canal, estado y fechas.
+    const permitidas = [
+      'id',
+      'turno_id',
+      'tipo',
+      'canal',
+      'programado_para',
+      'estado',
+      'enviado_en',
+      'created_at',
+      'updated_at',
+    ];
+    for (const pendiente of res.body.pendientes as Record<string, unknown>[]) {
+      expect(
+        Object.keys(pendiente).every((k) => permitidas.includes(k)),
+      ).toBe(true);
+    }
+  });
+});

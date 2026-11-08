@@ -35,6 +35,14 @@ export interface RecordatorioProcesado {
 
 const AHORA = (): string => new Date().toISOString();
 
+/**
+ * Nombre seguro de un error para logs operativos (R3): nunca `err.message`,
+ * que podría arrastrar valores bindeados de SQLite.
+ */
+function nombreDeError(err: unknown): string {
+  return err instanceof Error ? err.name : 'desconocido';
+}
+
 function minutosEntre(fecha1: string, fecha2: string): number {
   return (new Date(fecha2).getTime() - new Date(fecha1).getTime()) / 1000 / 60;
 }
@@ -96,6 +104,54 @@ export function programarRecordatoriosParaTurno(
       );
     }
   });
+}
+
+/**
+ * Programa recordatorios T-48h y T-24h para un turno de forma best-effort
+ * (c-07-fix, design D1/D3): un fallo de notificaciones NUNCA aborta ni revierte
+ * la operación de agenda. El error se loguea sólo con ids opacos (R3) y la
+ * situación se repara en el siguiente punto de orquestación o con el backfill,
+ * porque la programación es idempotente.
+ *
+ * DEBE invocarse FUERA de cualquier `UnitOfWork.runInTransaction`: la
+ * programación abre su propia transacción `BEGIN IMMEDIATE` y no hay
+ * anidamiento (design D2).
+ */
+export function programarRecordatoriosSeguro(
+  db: DatabaseSync,
+  turnoId: string,
+  inicioTurno: string,
+  config: RecordatorioConfig,
+): void {
+  try {
+    programarRecordatoriosParaTurno(db, turnoId, inicioTurno, config);
+  } catch (err) {
+    // Log operativo sin PHI (R3): sólo UUID opaco y nombre del error, nunca
+    // `err.message` (podría arrastrar valores bindeados) ni datos del paciente.
+    // eslint-disable-next-line no-console
+    console.error(
+      `recordatorio programacion fallida turno=${turnoId} error=${nombreDeError(err)}`,
+    );
+  }
+}
+
+/**
+ * Backfill operativo (c-07-fix, design D9): programa los hitos T-48h/T-24h de
+ * todos los turnos futuros activos usando `programarRecordatoriosSeguro`.
+ * Idempotente (D5): puede correrse varias veces sin duplicar filas.
+ * Devuelve la cantidad de turnos futuros procesados (no filas creadas).
+ */
+export function programarRecordatoriosDeTurnosFuturos(
+  db: DatabaseSync,
+  config: RecordatorioConfig,
+  ahoraIso: string,
+): number {
+  const turnos = new TurnoRepository(db);
+  const futuros = turnos.listarFuturosActivos(ahoraIso);
+  for (const turno of futuros) {
+    programarRecordatoriosSeguro(db, turno.id, turno.inicio, config);
+  }
+  return futuros.length;
 }
 
 /**
@@ -176,4 +232,3 @@ export function listarRecordatoriosPendientes(
     )
     .all() as unknown as RecordatorioRow[];
 }
-
