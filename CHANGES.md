@@ -369,7 +369,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-13] `comisiones-profesional`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-08-comisiones-profesional/`)
 - **Scope**: Liquidación de comisiones por profesional (F-09)
   - Reglas de comisión: % general o por tratamiento (RN-08)
   - Vista previa antes de confirmar liquidación

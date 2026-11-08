@@ -42,6 +42,33 @@ export interface CobroCaja {
   actorUsuarioId?: string | null;
 }
 
+/**
+ * Cobro candidato para C-13 (tasks 3.3; read-only). El repositorio reporta la
+ * atribución resuelta según la política D2 (ratificada ronda post-Bloque 1):
+ * `pago.turno_id` es la referencia principal; el `presupuesto_id` del mismo
+ * pago NO se re-procesa. La coexistencia incompatible se excluye de la base
+ * de cálculo con motivo EXPLÍCITO consultable (nunca exclusión silenciosa).
+ */
+export interface CobroElegibleComisionRow {
+  pago_id: string;
+  monto_centavos: number;
+  medio: PagoMedio;
+  /** Turno atribuido (turno del pago; si no hay, `presupuesto.turno_id`). */
+  turno_id: string | null;
+  /** Prestación del turno atribuido (puede ser NULL; D2). */
+  prestacion_id: string | null;
+  /** Fuente de la atribución: `turno` (principal) o `presupuesto` (rama P1). */
+  aplicacion: 'turno' | 'presupuesto';
+  /** Snapshot D4 del período bajo Q3: movimiento de caja o fallback `pago.created_at` (`YYYY-MM-DD`). */
+  fecha_contable: string;
+  /** `null` = elegible para el cálculo; si no, motivo del descarte (consultable en preview). */
+  motivo_descarte:
+    | 'no_atribuible'
+    | 'doble_referencia_incompatible'
+    | 'turno_no_atendido'
+    | null;
+}
+
 const PLACEHOLDERS_MEDIOS_BOLSILLO = MEDIOS_BOLSILLO.map(() => '?').join(', ');
 
 export class PagoRepository extends BaseRepository<PagoRow> {
@@ -244,5 +271,84 @@ export class PagoRepository extends BaseRepository<PagoRow> {
       )
       .get(turnoId) as { total: number };
     return fila.total;
+  }
+
+  /**
+   * Extensión read-only para C-13 (tasks 3.3; design D1/D2 — no toca C-11).
+   * Cobros candidatos del profesional para la base de comisión: solo pagos
+   * `cobrado` vigentes (D1), medio ≠ `obra_social` (Q1) y con fecha contable
+   * (movimiento de `cobro`; fallback `pago.created_at`, Q3/D3) dentro de
+   * `[desde, hasta]` INCLUSIVE en formato `YYYY-MM-DD`.
+   *
+   * Atribución (política D2 ratificada):
+   * - `pago.turno_id` seteado → referencia principal ("aplicacion: turno");
+   *   el `presupuesto_id` del MISMO pago no se re-procesa.
+   * - `pago.turno_id` NULL y `presupuesto.turno_id` del profesional y
+   *   atendido → atribución por presupuesto ("aplicacion: presupuesto";
+   *   el cálculo aplicará siempre `regla_aplicada: general`).
+   * - Doble referencia incompatible (`presupuesto.turno_id` ≠
+   *   `pago.turno_id`) → fila con `motivo_descarte` explícito
+   *   (exclusión con motivo consultable, D2).
+   * - Sin turno del pago y presupuesto sin turno del profesional →
+   *   `no_atribuible`. Turno no `atendido` (o dado de baja) →
+   *   `turno_no_atendido` (Q2).
+   *
+   * La elegibilidad de cálculo final (config, ajustes, cobro ya liquidado)
+   * la resuelve el motor de cálculo (task 4.1); aquí solo D1/D2/Q2/Q3.
+   * Orden canon `pago_id ASC` (estable para fingerprint, D13).
+   */
+  listarCobrosElegiblesComision(
+    profesionalId: string,
+    desde: string,
+    hasta: string,
+  ): CobroElegibleComisionRow[] {
+    return this.db
+      .prepare(
+        `SELECT
+          p.id AS pago_id,
+          p.monto_centavos,
+          p.medio,
+          CASE
+            WHEN p.turno_id IS NOT NULL THEN p.turno_id
+            WHEN pr.turno_id IS NOT NULL AND tpr.id IS NOT NULL AND tpr.profesional_id = ?
+              THEN pr.turno_id
+            ELSE NULL
+          END AS turno_id,
+          COALESCE(t.prestacion_id, tpr.prestacion_id) AS prestacion_id,
+          CASE WHEN p.turno_id IS NOT NULL THEN 'turno' ELSE 'presupuesto' END AS aplicacion,
+          COALESCE(m.fecha_contable, substr(p.created_at, 1, 10)) AS fecha_contable,
+          CASE
+            WHEN p.turno_id IS NOT NULL AND pr.turno_id IS NOT NULL AND pr.turno_id <> p.turno_id
+              THEN 'doble_referencia_incompatible'
+            WHEN p.turno_id IS NULL AND
+              (pr.turno_id IS NULL OR tpr.id IS NULL OR tpr.profesional_id <> ?)
+              THEN 'no_atribuible'
+            WHEN COALESCE(t.id, tpr.id) IS NULL
+              OR COALESCE(t.estado, tpr.estado) <> 'atendido'
+              THEN 'turno_no_atendido'
+            ELSE NULL
+          END AS motivo_descarte
+        FROM pago p
+        LEFT JOIN turno t ON t.id = p.turno_id AND t.deleted_at IS NULL
+        LEFT JOIN presupuesto pr ON pr.id = p.presupuesto_id AND pr.deleted_at IS NULL
+        LEFT JOIN turno tpr ON tpr.id = pr.turno_id AND tpr.deleted_at IS NULL
+        LEFT JOIN (
+          SELECT pago_id, MIN(fecha_contable) AS fecha_contable
+            FROM movimiento_caja
+           WHERE tipo = 'cobro'
+           GROUP BY pago_id
+        ) m ON m.pago_id = p.id
+        WHERE p.deleted_at IS NULL
+          AND p.estado = 'cobrado'
+          AND p.medio <> 'obra_social'
+          AND COALESCE(m.fecha_contable, substr(p.created_at, 1, 10)) BETWEEN ? AND ?
+        ORDER BY p.id ASC`,
+      )
+      .all(
+        profesionalId,
+        profesionalId,
+        desde,
+        hasta,
+      ) as unknown as CobroElegibleComisionRow[];
   }
 }

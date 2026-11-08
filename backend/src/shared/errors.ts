@@ -296,3 +296,46 @@ export class CajaError extends AppError {
     return body;
   }
 }
+
+/** Códigos de error del dominio de comisiones (C-13, design D10; tasks 1.2). */
+export type ComisionErrorCode =
+  | 'validacion'
+  | 'not_found'
+  | 'estado_invalido'
+  | 'cobro_ya_liquidado'
+  | 'periodo_ya_liquidado'
+  | 'sin_configuracion'
+  | 'identidad_ya_configurada'
+  | 'preview_desactualizado';
+
+/**
+ * Error tipado de comisiones (C-13). Sin PHI (R3): la respuesta solo lleva el
+ * código; `detalle` aparece únicamente en errores de `validacion`.
+ * Mapeo HTTP (task 6.2, design D10): `preview_desactualizado`,
+ * `cobro_ya_liquidado`, `periodo_ya_liquidado` y `estado_invalido` → `409`;
+ * `not_found` → `404`; `sin_configuracion`/`identidad_ya_configurada`/`validacion` → `422`.
+ */
+export class ComisionError extends AppError {
+  declare readonly status: 400 | 401 | 403 | 404 | 409 | 422;
+  declare readonly code: ComisionErrorCode;
+  readonly detalle?: string | undefined;
+
+  constructor(args: {
+    status: 400 | 401 | 403 | 404 | 409 | 422;
+    code: ComisionErrorCode;
+    message: string;
+    detalle?: string;
+  }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'ComisionError';
+    this.detalle = args.detalle;
+  }
+
+  toBody(): Record<string, unknown> {
+    const body: Record<string, unknown> = { error: this.code };
+    if (this.code === 'validacion' && this.detalle !== undefined) {
+      body['detalle'] = this.detalle;
+    }
+    return body;
+  }
+}

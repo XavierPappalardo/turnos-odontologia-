@@ -9,6 +9,7 @@
  * 010 = caja: pago ampliado (aplicación, idempotencia, anulación) +
  *        movimiento_caja (append-only) + cierre_caja (C-11).
  * 011 = obras sociales: cobertura por turno, liquidación (cabecera/ítems/eventos) (C-12).
+ * 012 = comisiones: config por profesional, liquidaciones y ajustes compensatorios (C-13).
  * Montos: enteros en centavos (R2/R5), sin floats.
  */
 import type { DatabaseSync } from 'node:sqlite';
@@ -562,6 +563,161 @@ BEGIN SELECT RAISE(ABORT, 'obra_social_liquidacion_evento es insert-only'); END;
 `;
 
 /**
+ * 012 — comisiones (C-13, design D9): configuración de % (general y por
+ * tratamiento), liquidación de comisiones (cabecera por período + ítems
+ * snapshot + ajustes compensatorios) e historial append-only de eventos.
+ * Hereda el patrón de C-12 (011): cabecera con UNIQUE activa por período,
+ * ítems snapshot, eventos insert-only con triggers.
+ * FKs hacia core 001–010 (profesional, prestacion, pago, usuario) y hacia las
+ * cabeceras/ítems propios del módulo (liquidacion_comision / ítem de origen);
+ * `turno_id` del ítem es snapshot de valor (sin FK: histórico inmutable, D9).
+ * Reserva exclusiva de ajustes (D12/P2): el índice único parcial sobre
+ * `item_origen_id` con `estado_ajuste = 'reservado'` garantiza a nivel de BD
+ * que un ajuste pertenece como máximo a UN borrador activo; las filas
+ * `consumido` NO bloquean el arrastre del saldo residual.
+ * Saldo de compensación (D12/P1): `0` en `borrador`; `max(0, ajustes − items)`
+ * en `confirmada` (CASE en CHECK). Sin pagos negativos automáticos.
+ * Montos enteros en centavos (R2/R5); % enteros 0..100 (R6).
+ */
+export const MIGRATION_012_COMISIONES = `
+CREATE TABLE IF NOT EXISTS profesional_comision (
+  id TEXT PRIMARY KEY,
+  profesional_id TEXT NOT NULL REFERENCES profesional(id),
+  pct_general INTEGER NOT NULL
+    CHECK (pct_general BETWEEN 0 AND 100)
+    CHECK (pct_general = CAST(pct_general AS INTEGER)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS com_config_prof_activa
+  ON profesional_comision(profesional_id) WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS profesional_comision_tratamiento (
+  id TEXT PRIMARY KEY,
+  profesional_id TEXT NOT NULL REFERENCES profesional(id),
+  prestacion_id TEXT NOT NULL REFERENCES prestacion(id),
+  pct INTEGER NOT NULL
+    CHECK (pct BETWEEN 0 AND 100)
+    CHECK (pct = CAST(pct AS INTEGER)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS com_tratamiento_par_activa
+  ON profesional_comision_tratamiento(profesional_id, prestacion_id) WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS liquidacion_comision (
+  id TEXT PRIMARY KEY,
+  profesional_id TEXT NOT NULL REFERENCES profesional(id),
+  desde TEXT NOT NULL,
+  hasta TEXT NOT NULL CHECK (hasta >= desde),
+  estado TEXT NOT NULL DEFAULT 'borrador'
+    CHECK (estado IN ('borrador', 'confirmada')),
+  monto_items_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (monto_items_centavos >= 0)
+    CHECK (monto_items_centavos = CAST(monto_items_centavos AS INTEGER)),
+  monto_ajustes_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (monto_ajustes_centavos >= 0)
+    CHECK (monto_ajustes_centavos = CAST(monto_ajustes_centavos AS INTEGER)),
+  monto_total_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (monto_total_centavos = monto_items_centavos - monto_ajustes_centavos)
+    CHECK (monto_total_centavos = CAST(monto_total_centavos AS INTEGER)),
+  saldo_compensacion_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (saldo_compensacion_centavos >= 0)
+    CHECK (saldo_compensacion_centavos = CAST(saldo_compensacion_centavos AS INTEGER))
+    CHECK (saldo_compensacion_centavos = CASE WHEN estado = 'borrador' THEN 0 WHEN monto_items_centavos >= monto_ajustes_centavos THEN 0 ELSE monto_ajustes_centavos - monto_items_centavos END),
+  fingerprint TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS com_liquidacion_periodo_activa
+  ON liquidacion_comision(profesional_id, desde, hasta) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS com_liquidacion_prof_estado
+  ON liquidacion_comision(profesional_id, estado);
+CREATE INDEX IF NOT EXISTS com_liquidacion_periodo
+  ON liquidacion_comision(desde, hasta);
+
+CREATE TABLE IF NOT EXISTS liquidacion_comision_item (
+  id TEXT PRIMARY KEY,
+  liquidacion_id TEXT NOT NULL REFERENCES liquidacion_comision(id),
+  pago_id TEXT NOT NULL REFERENCES pago(id),
+  turno_id TEXT,
+  fecha_contable TEXT NOT NULL
+    CHECK (fecha_contable GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'), -- snapshot D4 (mov. caja; fallback pago.created_at)
+  monto_cobro_centavos INTEGER NOT NULL
+    CHECK (monto_cobro_centavos >= 0)
+    CHECK (monto_cobro_centavos = CAST(monto_cobro_centavos AS INTEGER)),
+  pct_aplicado INTEGER NOT NULL
+    CHECK (pct_aplicado BETWEEN 0 AND 100)
+    CHECK (pct_aplicado = CAST(pct_aplicado AS INTEGER)),
+  regla_aplicada TEXT NOT NULL CHECK (regla_aplicada IN ('general', 'tratamiento')),
+  monto_comision_centavos INTEGER NOT NULL
+    CHECK (monto_comision_centavos >= 0)
+    CHECK (monto_comision_centavos = CAST(monto_comision_centavos AS INTEGER)),
+  created_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS com_item_pago_unico
+  ON liquidacion_comision_item(pago_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS com_item_liquidacion
+  ON liquidacion_comision_item(liquidacion_id);
+
+CREATE TABLE IF NOT EXISTS liquidacion_comision_ajuste (
+  id TEXT PRIMARY KEY,
+  liquidacion_id TEXT NOT NULL REFERENCES liquidacion_comision(id),
+  item_origen_id TEXT NOT NULL REFERENCES liquidacion_comision_item(id),
+  pago_id TEXT NOT NULL REFERENCES pago(id),
+  tipo_ajuste TEXT NOT NULL
+    CHECK (tipo_ajuste IN ('anulacion_cobro', 'saldo_arrastre')),
+  monto_ajuste_centavos INTEGER NOT NULL
+    CHECK (monto_ajuste_centavos > 0)
+    CHECK (monto_ajuste_centavos = CAST(monto_ajuste_centavos AS INTEGER)),
+  monto_compensado_centavos INTEGER NOT NULL DEFAULT 0
+    CHECK (monto_compensado_centavos >= 0)
+    CHECK (monto_compensado_centavos <= monto_ajuste_centavos)
+    CHECK (monto_compensado_centavos = CAST(monto_compensado_centavos AS INTEGER)),
+  estado_ajuste TEXT NOT NULL
+    CHECK (estado_ajuste IN ('reservado', 'consumido')),
+  compensado_en TEXT
+    CHECK (
+      estado_ajuste = 'reservado'
+      OR (estado_ajuste = 'consumido' AND compensado_en IS NOT NULL)
+    ),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+-- Reserva exclusiva (D12): un ajuste está reservado como máximo por UN borrador activo.
+CREATE UNIQUE INDEX IF NOT EXISTS com_ajuste_reserva_activa
+  ON liquidacion_comision_ajuste(item_origen_id)
+  WHERE deleted_at IS NULL AND estado_ajuste = 'reservado';
+-- Un mismo origen no se duplica dentro del mismo host (liq) activo.
+CREATE UNIQUE INDEX IF NOT EXISTS com_ajuste_origen_host
+  ON liquidacion_comision_ajuste(item_origen_id, liquidacion_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS com_ajuste_liquidacion
+  ON liquidacion_comision_ajuste(liquidacion_id);
+CREATE INDEX IF NOT EXISTS com_ajuste_item_origen
+  ON liquidacion_comision_ajuste(item_origen_id);
+
+CREATE TABLE IF NOT EXISTS liquidacion_comision_evento (
+  id TEXT PRIMARY KEY,
+  liquidacion_id TEXT NOT NULL REFERENCES liquidacion_comision(id),
+  evento TEXT NOT NULL CHECK (evento IN ('generada', 'confirmada')),
+  actor_usuario_id TEXT NOT NULL REFERENCES usuario(id),
+  ocurrido_en TEXT NOT NULL, -- momento del evento de negocio
+  created_at TEXT NOT NULL  -- sello de inserción (contrato de AppendOnlyRepository)
+);
+CREATE INDEX IF NOT EXISTS com_evento_liquidacion
+  ON liquidacion_comision_evento(liquidacion_id, ocurrido_en);
+CREATE TRIGGER com_evento_no_update BEFORE UPDATE ON liquidacion_comision_evento
+BEGIN SELECT RAISE(ABORT, 'liquidacion_comision_evento es insert-only'); END;
+CREATE TRIGGER com_evento_no_delete BEFORE DELETE ON liquidacion_comision_evento
+BEGIN SELECT RAISE(ABORT, 'liquidacion_comision_evento es insert-only'); END;
+`;
+
+/**
  * Registro ordenado de migraciones (design D4). La migración base 001 crea las
  * tablas núcleo. El orden del array ES el orden de aplicación.
  */
@@ -577,6 +733,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '009', sql: MIGRATION_009_PRESUPUESTOS },
   { id: '010', sql: MIGRATION_010_CAJA },
   { id: '011', sql: MIGRATION_011_OBRAS_SOCIALES },
+  { id: '012', sql: MIGRATION_012_COMISIONES },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */
