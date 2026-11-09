@@ -29,6 +29,7 @@ const AUTH: AppConfig = {
   caja: { zonaHoraria: 'America/Buenos_Aires' },
   mercadopago: { habilitado: false, ambiente: 'sandbox', token: null, webhookSecret: null },
   chatbot: { simuladoHabilitado: true, sessionTtlSeconds: 1800, maxIntentosInvalidos: 5, rateMax: 1000, rateWindowSeconds: 60 },
+  portalPaciente: { tokenTtlSeconds: 604800, rateMax: 1000, rateWindowSeconds: 60 },
 };
 
 const PROF = 'prof-c16-1';

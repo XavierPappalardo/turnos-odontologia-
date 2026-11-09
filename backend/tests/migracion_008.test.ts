@@ -101,10 +101,10 @@ describe('MIGRATION_008_CLINICA', () => {
     }
   });
 
-  it('Dado MIGRATIONS Cuando inspecciono Entonces 008 está registrada en su posición y el registro incluye 014', () => {
+  it('Dado MIGRATIONS Cuando inspecciono Entonces 008 está registrada en su posición y el registro incluye 015', () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(ids).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015',
     ]);
   });
 });

@@ -52,6 +52,14 @@ export interface ChatbotConfig {
   readonly rateWindowSeconds: number;
 }
 
+/** Configuración del portal paciente por token opaco (C-17): sin cuentas/secretos reales. */
+export interface PortalPacienteConfig {
+  /** TTL del token de acceso al portal en segundos. */
+  readonly tokenTtlSeconds: number;
+  readonly rateMax: number;
+  readonly rateWindowSeconds: number;
+}
+
 export interface AppConfig {
   readonly port: number;
   readonly databasePath: string;
@@ -67,6 +75,7 @@ export interface AppConfig {
   readonly caja: CajaConfig;
   readonly mercadopago: MercadoPagoConfig;
   readonly chatbot: ChatbotConfig;
+  readonly portalPaciente: PortalPacienteConfig;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'production', 'test'];
@@ -94,6 +103,10 @@ const DEFAULT_CHATBOT_SESSION_TTL_SECONDS = 30 * 60; // 30 min
 const DEFAULT_CHATBOT_MAX_INTENTOS_INVALIDOS = 5;
 const DEFAULT_CHATBOT_RATE_MAX = 30;
 const DEFAULT_CHATBOT_RATE_WINDOW_SECONDS = 60;
+// C-17 portal paciente (token opaco, sin credenciales reales)
+const DEFAULT_PORTAL_PACIENTE_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 días
+const DEFAULT_PORTAL_PACIENTE_RATE_MAX = 60;
+const DEFAULT_PORTAL_PACIENTE_RATE_WINDOW_SECONDS = 60;
 
 /** Error de configuración: nombra la variable faltante/inválida (fail-fast). */
 export class ConfigError extends Error {
@@ -288,6 +301,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         env,
         'CHATBOT_RATE_WINDOW_SECONDS',
         DEFAULT_CHATBOT_RATE_WINDOW_SECONDS,
+      ),
+    },
+    portalPaciente: {
+      tokenTtlSeconds: positiveInt(
+        env,
+        'PORTAL_PACIENTE_TOKEN_TTL_SECONDS',
+        DEFAULT_PORTAL_PACIENTE_TOKEN_TTL_SECONDS,
+      ),
+      rateMax: positiveInt(env, 'PORTAL_PACIENTE_RATE_MAX', DEFAULT_PORTAL_PACIENTE_RATE_MAX),
+      rateWindowSeconds: positiveInt(
+        env,
+        'PORTAL_PACIENTE_RATE_WINDOW_SECONDS',
+        DEFAULT_PORTAL_PACIENTE_RATE_WINDOW_SECONDS,
       ),
     },
   };

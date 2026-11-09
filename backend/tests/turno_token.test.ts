@@ -54,6 +54,11 @@ const AUTH: AppConfig = {
         rateMax: 1000,
         rateWindowSeconds: 60,
       },
+      portalPaciente: {
+        tokenTtlSeconds: 604800,
+        rateMax: 1000,
+        rateWindowSeconds: 60,
+      },
   };
 
 // ── Fixtures ficticios (R1/R12) ────────────────────────────────────────────

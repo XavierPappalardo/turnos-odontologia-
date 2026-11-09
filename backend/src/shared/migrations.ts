@@ -745,6 +745,27 @@ CREATE INDEX IF NOT EXISTS idx_chatbot_conversacion_expires_at ON chatbot_conver
  * Registro ordenado de migraciones (design D4). La migración base 001 crea las
  * tablas núcleo. El orden del array ES el orden de aplicación.
  */
+
+
+export const MIGRATION_015_PORTAL_PACIENTE = `
+-- C-17: Tokens de acceso al portal paciente (opacos, hasheados, sin PHI).
+CREATE TABLE IF NOT EXISTS portal_paciente_token (
+  id TEXT PRIMARY KEY,
+  paciente_id TEXT NOT NULL REFERENCES paciente(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_portal_paciente_token_hash ON portal_paciente_token(token_hash, revoked_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_portal_paciente_token_paciente ON portal_paciente_token(paciente_id);
+`;
+
+/**
+ * Registro ordenado de migraciones (design D4). La migraci??n base 001 crea las
+ * tablas n?cleo. El orden del array ES el orden de aplicaci??n.
+ */
 export const MIGRATIONS: readonly Migration[] = [
   { id: '001', sql: MIGRATION_001_CORE },
   { id: '002', sql: MIGRATION_002_AUTH },
@@ -760,6 +781,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '012', sql: MIGRATION_012_COMISIONES },
   { id: '013', sql: MIGRATION_013_PRECIOS_PUBLICOS },
   { id: '014', sql: MIGRATION_014_CHATBOT_CONVERSACION },
+  { id: '015', sql: MIGRATION_015_PORTAL_PACIENTE },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

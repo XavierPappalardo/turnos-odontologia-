@@ -9,6 +9,7 @@ import { reservaOnlineRouter } from '../agenda/reservaOnline.routes.js';
 import { turnoTokenRouter } from '../agenda/turnoToken.routes.js';
 import { recordatorioRouter } from '../notificaciones/recordatorio.routes.js';
 import { chatbotRouter } from '../notificaciones/chatbot/chatbot.routes.js';
+import { portalPacienteRouter } from '../portal/portal.routes.js';
 import { historiaClinicaRouter } from '../clinica/historiaClinica.routes.js';
 import { odontogramaRouter } from '../clinica/odontograma.routes.js';
 import { pacientesRouter } from '../clinica/pacientes.routes.js';
@@ -46,6 +47,7 @@ export function createApp(db: DatabaseSync, config: AppConfig): Express {
   app.use('/api/public', turnoTokenRouter(db, config));
   app.use('/api/public', recordatorioRouter(db, config));
   app.use('/api/public', chatbotRouter(db, config));
+  app.use('/api/public', portalPacienteRouter(db, config));
   app.use('/api/public', catalogoPublicoRouter(db));
   app.use('/api', historiaClinicaRouter(db));
   app.use('/api', odontogramaRouter(db));

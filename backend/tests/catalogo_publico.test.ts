@@ -48,6 +48,7 @@ const APP_CONFIG: AppConfig = {
     rateMax: 1000,
     rateWindowSeconds: 60,
   },
+  portalPaciente: { tokenTtlSeconds: 604800, rateMax: 1000, rateWindowSeconds: 60 },
 };
 
 describe('GET /api/public/prestaciones — Catálogo público de precios en ARS', () => {

@@ -1,0 +1,72 @@
+.portal {
+  padding: 0 20px 32px;
+  text-align: left;
+}
+.portal-subtitle {
+  margin: 0 0 16px;
+}
+.portal-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
+}
+.portal-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+.portal-access {
+  max-width: 520px;
+  display: grid;
+  gap: 8px;
+}
+.portal-actions-top {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.portal input, .portal button {
+  font: inherit;
+}
+.portal input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+.portal button {
+  cursor: pointer;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.portal button.secondary {
+  background: transparent;
+  border-color: var(--border);
+}
+.portal button:disabled { opacity: 0.7; cursor: default; }
+.portal-message { margin: 8px 0; }
+.portal-message.error { color: #b42318; }
+.portal-message.ok { color: #067647; }
+.portal-meta { margin: 0 0 8px; color: var(--text); }
+.portal-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.portal-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+.portal-item-main { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+.portal-item-sub { font-size: 0.9em; margin-top: 4px; color: var(--text); }
+.portal-item-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.portal-badge { font-size: 0.85em; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.portal-reprogram { display: grid; gap: 8px; margin-top: 10px; }
+.portal-reprogram label { display: grid; gap: 4px; font-size: 0.9em; }
+@media (max-width: 640px) {
+  .portal { padding: 0 12px 24px; }
+  .portal-item-actions button { flex: 1 1 auto; }
+}

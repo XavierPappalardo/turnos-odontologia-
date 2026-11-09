@@ -118,7 +118,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   8  │ —                                 │ C-11 caja-cobros-multimedio-mercadopago │ —
   9  │ —                                 │ —                                │ C-13 comisiones-profesional
   10 │ C-14 reportes-ocupacion-facturacion-ausentismo │ — │ C-15 precios-publicos-ars
-  11 │ C-16 ia-chatbot-whatsapp-agenda, C-19 reseñas-google-automaticas │ C-17 portal-paciente, C-20 demo-migracion-excel │ C-18 recuperacion-inactivos-cobranza
+  11 │ C-16 ia-chatbot-whatsapp-agenda, C-19 reseñas-google-automaticas │ C-17 portal-paciente [x], C-20 demo-migracion-excel │ C-18 recuperacion-inactivos-cobranza
 ```
 
 ---
@@ -440,7 +440,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-17] `portal-paciente`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (`openspec/changes/archive/2026-11-09-c-17-portal-paciente`)
 - **Scope**: Portal del paciente (turnos, presupuestos, documentos) — fase 2 temprana (D-02)
   - Autenticación paciente (mínima) o acceso por link/token
   - Secciones: mis turnos, presupuestos, documentos
