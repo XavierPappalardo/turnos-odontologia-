@@ -473,7 +473,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-19] `reseñas-google-automaticas`
-- **Estado**: `[x]` implementada (2026-11-09, C-19 solicitud reseña post-atención simulada, migración 017)
+- **Estado**: `[x]` completado (2026-11-09) — archivado en `openspec/changes/archive/2026-11-09-c-19-resenas-google-automaticas/`; spec sincronizada `openspec/specs/notificaciones/solicitud-resena/spec.md`; migración 017, solicitud reseña post-atención simulada (D-04)
 - **Scope**: Solicitud automática de reseñas en Google (D-04)
   - Disparador post-atención (estado atendido)
   - Envío de link a reseña (Google) vía WhatsApp/email
