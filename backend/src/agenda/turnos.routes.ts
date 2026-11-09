@@ -90,7 +90,7 @@ export function turnosRouter(db: DatabaseSync, config: AppConfig): Router {
             nuevoEstado: body.estado,
             rol: rolEfectivo(getAuth(res)),
           },
-          config.recordatorio,
+          { recordatorio: config.recordatorio, solicitudResena: config.solicitudResena },
         );
         res.status(200).json({
           id: actualizado.id,

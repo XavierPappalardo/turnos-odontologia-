@@ -32,6 +32,14 @@ const AUTH: AppConfig = {
     cobranzaVentanaHoras: 168,
     maxContactosPorEjecucion: 200,
   },
+  solicitudResena: {
+    habilitado: true,
+    linkResena: 'https://ejemplo.local/resena-placeholder',
+    canalPredeterminado: 'whatsapp',
+    demoraMinutos: 0,
+    ventanaDedupeHoras: 8760,
+    maxSolicitudesPorLote: 200,
+  },
 };
 
 function seed(db: DatabaseSync): void {

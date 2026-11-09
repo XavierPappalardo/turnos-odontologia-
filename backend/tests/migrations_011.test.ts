@@ -42,10 +42,10 @@ function sembrarEntidadesBase(db: DatabaseSync): void {
 }
 
 describe('Migración 011 - obras sociales y liquidaciones', () => {
-  it('Dado MIGRATIONS Cuando lista migraciones Entonces incluye 011 y 012 al final', () => {
+  it('Dado MIGRATIONS Cuando lista migraciones Entonces incluye 011 y la última es 017', () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(ids).toContain('011');
-    expect(ids[ids.length - 1]).toBe('016');
+    expect(ids[ids.length - 1]).toBe('017');
   });
 
   it('Dado BD nueva Cuando corre runMigrations Entonces crea las 4 tablas de C-12', () => {

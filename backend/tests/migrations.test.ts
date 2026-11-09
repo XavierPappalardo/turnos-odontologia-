@@ -55,7 +55,7 @@ describe('runMigrations', () => {
     try {
       const first = runMigrations(db);
       expect(first).toEqual([
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
       ]);
       const before = tableNames(db);
       let second: readonly string[] = ['<sin-correr>'];
@@ -71,15 +71,15 @@ describe('runMigrations', () => {
 
   it('Dado runMigrations Cuando registro Entonces ids ordenados ascendente', () => {
     expect(MIGRATIONS.map((m) => m.id)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
     ]);
   });
 
-  it('Dado openDatabase Cuando abro Entonces delega en el runner y registra 001→014', () => {
+  it('Dado openDatabase Cuando abro Entonces delega en el runner y registra 001→017', () => {
     const db = openDatabase(':memory:');
     try {
       expect(appliedIds(db)).toEqual([
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
       ]);
     } finally {
       db.close();

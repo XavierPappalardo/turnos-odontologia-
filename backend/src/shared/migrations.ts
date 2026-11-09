@@ -804,6 +804,29 @@ CREATE INDEX IF NOT EXISTS idx_recuperacion_contacto_dedupe ON recuperacion_cont
 CREATE INDEX IF NOT EXISTS idx_recuperacion_contacto_ejecucion ON recuperacion_contacto(ejecucion_id);
 `;
 
+export const MIGRATION_017_SOLICITUD_RESENA = `
+-- C-19: Solicitud automática de reseñas post-atención (sin PHI/secretos/credenciales reales).
+-- IDs opacos; link_ref/canal son metadatos operativos seguros.
+CREATE TABLE IF NOT EXISTS solicitud_resena (
+  id TEXT PRIMARY KEY,
+  turno_id TEXT NOT NULL REFERENCES turno(id),
+  paciente_id TEXT NOT NULL REFERENCES paciente(id),
+  canal TEXT NOT NULL CHECK (canal IN ('whatsapp','email')),
+  link_ref TEXT NOT NULL,
+  estado TEXT NOT NULL CHECK (estado IN ('enviado_simulado','omitido','fallido')),
+  motivo_omision TEXT,
+  dedupe_clave TEXT NOT NULL,
+  ventana_hasta TEXT,
+  detalle_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_solicitud_resena_turno ON solicitud_resena(turno_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_solicitud_resena_paciente ON solicitud_resena(paciente_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_solicitud_resena_estado ON solicitud_resena(estado, created_at);
+CREATE INDEX IF NOT EXISTS idx_solicitud_resena_dedupe ON solicitud_resena(dedupe_clave);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { id: '001', sql: MIGRATION_001_CORE },
   { id: '002', sql: MIGRATION_002_AUTH },
@@ -821,6 +844,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '014', sql: MIGRATION_014_CHATBOT_CONVERSACION },
   { id: '015', sql: MIGRATION_015_PORTAL_PACIENTE },
   { id: '016', sql: MIGRATION_016_RECUPERACION_COBRANZA },
+  { id: '017', sql: MIGRATION_017_SOLICITUD_RESENA },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

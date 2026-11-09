@@ -73,6 +73,20 @@ export interface RecuperacionCobranzaConfig {
   readonly maxContactosPorEjecucion: number;
 }
 
+/** Configuración de solicitud automática de reseñas post-atención (C-19): sin secretos/credenciales reales. */
+export interface SolicitudResenaConfig {
+  readonly habilitado: boolean;
+  /** Link de reseña configurable (no secreto). Placeholder permitido en dev/tests. */
+  readonly linkResena: string;
+  readonly canalPredeterminado: 'whatsapp' | 'email';
+  /** Demora tras la atención antes de considerar elegible (minutos). */
+  readonly demoraMinutos: number;
+  /** Ventana para dedupe/reintentos controlados (horas). */
+  readonly ventanaDedupeHoras: number;
+  /** Límite operativo seguro por procesamiento/lote. */
+  readonly maxSolicitudesPorLote: number;
+}
+
 export interface AppConfig {
   readonly port: number;
   readonly databasePath: string;
@@ -90,6 +104,7 @@ export interface AppConfig {
   readonly chatbot: ChatbotConfig;
   readonly portalPaciente: PortalPacienteConfig;
   readonly recuperacionCobranza: RecuperacionCobranzaConfig;
+  readonly solicitudResena: SolicitudResenaConfig;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'production', 'test'];
@@ -126,6 +141,12 @@ const DEFAULT_RECUPERACION_INACTIVIDAD_DIAS = 180;
 const DEFAULT_RECUPERACION_VENTANA_HORAS = 24 * 30;
 const DEFAULT_COBRANZA_VENTANA_HORAS = 24 * 7;
 const DEFAULT_RECUPERACION_MAX_CONTACTOS = 200;
+// C-19 solicitud automática de reseñas post-atención (sin credenciales reales; link no secreto)
+const DEFAULT_SOLICITUD_RESENA_LINK = 'https://ejemplo.local/resena-placeholder';
+const DEFAULT_SOLICITUD_RESENA_CANAL: 'whatsapp' | 'email' = 'whatsapp';
+const DEFAULT_SOLICITUD_RESENA_DEMORA_MINUTOS = 0;
+const DEFAULT_SOLICITUD_RESENA_VENTANA_DEDUPE_HORAS = 24 * 365;
+const DEFAULT_SOLICITUD_RESENA_MAX_POR_LOTE = 200;
 
 /** Error de configuración: nombra la variable faltante/inválida (fail-fast). */
 export class ConfigError extends Error {
@@ -156,6 +177,20 @@ function positiveInt(
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
     throw new ConfigError(name, `${name} debe ser un entero positivo, recibido "${raw}"`);
+  }
+  return value;
+}
+
+function nonNegativeInt(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+): number {
+  const raw = env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new ConfigError(name, `${name} debe ser un entero no negativo, recibido "${raw}"`);
   }
   return value;
 }
@@ -358,6 +393,28 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         env,
         'RECUPERACION_MAX_CONTACTOS',
         DEFAULT_RECUPERACION_MAX_CONTACTOS,
+      ),
+    },
+    solicitudResena: {
+      habilitado:
+        (env['SOLICITUD_RESENA_HABILITADO'] ?? 'true').trim().toLowerCase() !== 'false' &&
+        (env['SOLICITUD_RESENA_HABILITADO'] ?? 'true').trim() !== '0',
+      linkResena: (env['SOLICITUD_RESENA_LINK'] ?? DEFAULT_SOLICITUD_RESENA_LINK).trim(),
+      canalPredeterminado: (env['SOLICITUD_RESENA_CANAL'] ?? DEFAULT_SOLICITUD_RESENA_CANAL) as 'whatsapp' | 'email',
+      demoraMinutos: nonNegativeInt(
+        env,
+        'SOLICITUD_RESENA_DEMORA_MINUTOS',
+        DEFAULT_SOLICITUD_RESENA_DEMORA_MINUTOS,
+      ),
+      ventanaDedupeHoras: positiveInt(
+        env,
+        'SOLICITUD_RESENA_VENTANA_DEDUPE_HORAS',
+        DEFAULT_SOLICITUD_RESENA_VENTANA_DEDUPE_HORAS,
+      ),
+      maxSolicitudesPorLote: positiveInt(
+        env,
+        'SOLICITUD_RESENA_MAX_POR_LOTE',
+        DEFAULT_SOLICITUD_RESENA_MAX_POR_LOTE,
       ),
     },
   };

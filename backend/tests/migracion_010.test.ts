@@ -305,7 +305,7 @@ describe('Migración 010 - caja (C-11)', () => {
       .prepare('SELECT id FROM schema_migrations ORDER BY id')
       .all() as unknown as { id: string }[];
     expect(idsAplicados.map((r) => r.id)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017',
     ]);
     expect(pagos.n).toBe(0);
     db.close();

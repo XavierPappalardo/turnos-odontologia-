@@ -8,12 +8,13 @@ import type { DatabaseSync } from 'node:sqlite';
 import { puedeCambiarEstadoTurno, type Rol } from '../shared/auth.js';
 import { TurnoEstadoError } from '../shared/errors.js';
 import type { TurnoEstado, TurnoId } from '../shared/types.js';
-import type { RecordatorioConfig } from '../shared/config.js';
+import type { RecordatorioConfig, SolicitudResenaConfig } from '../shared/config.js';
 import { TurnoRepository, type TurnoRow } from './turno.repository.js';
 import {
   cancelarRecordatoriosDeTurno,
   programarRecordatoriosSeguro,
 } from '../notificaciones/recordatorio.worker.js';
+import { solicitarResenaSeguro } from '../notificaciones/solicitud-resena/service.js';
 
 export const TRANSICIONES: Readonly<Record<TurnoEstado, readonly TurnoEstado[]>> = {
   reservado: ['confirmado', 'cancelado'],
@@ -44,8 +45,13 @@ export interface CambiarEstadoInput {
 export function cambiarEstadoTurno(
   db: DatabaseSync,
   input: CambiarEstadoInput,
-  recordatorioConfig: RecordatorioConfig,
+  config:
+    | RecordatorioConfig
+    | { recordatorio: RecordatorioConfig; solicitudResena?: SolicitudResenaConfig },
 ): TurnoRow {
+  const recordatorioConfig =
+    'recordatorio' in config ? config.recordatorio : (config as RecordatorioConfig);
+  const solicitudResena = 'solicitudResena' in config ? config.solicitudResena : undefined;
   if (!esEstadoValido(input.nuevoEstado)) {
     throw new TurnoEstadoError({
       status: 400,
@@ -110,6 +116,12 @@ export function cambiarEstadoTurno(
     // `runInTransaction`; si un caller futuro lo necesita, debe programar
     // post-commit con `programarRecordatoriosSeguro` (design D2).
     programarRecordatoriosSeguro(db, fila.id, fila.inicio, recordatorioConfig);
+  }
+
+  // C-19: solicitud de reseña post-atención, best-effort post-commit.
+  // Nunca revierte el estado ya confirmado; sin PHI (IDs opacos).
+  if (input.nuevoEstado === 'atendido' && solicitudResena) {
+    solicitarResenaSeguro(db, solicitudResena, fila.id);
   }
 
   return fila;

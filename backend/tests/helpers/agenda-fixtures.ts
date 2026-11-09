@@ -62,6 +62,14 @@ export const APP_CONFIG: AppConfig = {
     cobranzaVentanaHoras: 24 * 7,
     maxContactosPorEjecucion: 200,
   },
+  solicitudResena: {
+    habilitado: true,
+    linkResena: 'https://ejemplo.local/resena-placeholder',
+    canalPredeterminado: 'whatsapp',
+    demoraMinutos: 0,
+    ventanaDedupeHoras: 24 * 365,
+    maxSolicitudesPorLote: 200,
+  },
 };
 
 export function bearer(roles: readonly Rol[]): string {

@@ -45,7 +45,7 @@ C-01 foundation-setup
                     ├── C-16 ia-chatbot-whatsapp-agenda  (Diferenciador)
                     ├── C-17 portal-paciente              (Diferenciador)
                     ├── C-18 recuperacion-inactivos-cobranza [x] (Diferenciador)
-                    ├── C-19 reseñas-google-automaticas   (Diferenciador)
+                    ├── C-19 reseñas-google-automaticas [x] (Diferenciador)
                     └── C-20 demo-migracion-excel         (Diferenciador)
 ```
 
@@ -93,7 +93,7 @@ GATE 10: C-15 ✓                    ← ÚLTIMO FORK (5 paralelos diferenciador
   → C-16 ia-chatbot-whatsapp-agenda [Agente A]
   → C-17 portal-paciente            [Agente B]
   → C-18 recuperacion-inactivos-cobranza [x] [Agente C]
-  → C-19 reseñas-google-automaticas [Agente A]
+  → C-19 reseñas-google-automaticas [x] [Agente A]
   → C-20 demo-migracion-excel       [Agente B]
 ```
 
@@ -473,7 +473,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-19] `reseñas-google-automaticas`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` implementada (2026-11-09, C-19 solicitud reseña post-atención simulada, migración 017)
 - **Scope**: Solicitud automática de reseñas en Google (D-04)
   - Disparador post-atención (estado atendido)
   - Envío de link a reseña (Google) vía WhatsApp/email
