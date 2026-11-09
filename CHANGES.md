@@ -46,7 +46,7 @@ C-01 foundation-setup
                     ├── C-17 portal-paciente              (Diferenciador)
                     ├── C-18 recuperacion-inactivos-cobranza [x] (Diferenciador)
                     ├── C-19 reseñas-google-automaticas [x] (Diferenciador)
-                    └── C-20 demo-migracion-excel         (Diferenciador)
+                    └── C-20 demo-migracion-excel [x]         (Diferenciador)
 ```
 
 ### Paralelismo por fase
@@ -94,7 +94,7 @@ GATE 10: C-15 ✓                    ← ÚLTIMO FORK (5 paralelos diferenciador
   → C-17 portal-paciente            [Agente B]
   → C-18 recuperacion-inactivos-cobranza [x] [Agente C]
   → C-19 reseñas-google-automaticas [x] [Agente A]
-  → C-20 demo-migracion-excel       [Agente B]
+  → C-20 demo-migracion-excel [x]       [Agente B]
 ```
 
 ### Camino crítico (9 changes — mínimo irreducible)
@@ -118,7 +118,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   8  │ —                                 │ C-11 caja-cobros-multimedio-mercadopago │ —
   9  │ —                                 │ —                                │ C-13 comisiones-profesional
   10 │ C-14 reportes-ocupacion-facturacion-ausentismo │ — │ C-15 precios-publicos-ars
-  11 │ C-16 ia-chatbot-whatsapp-agenda, C-19 reseñas-google-automaticas │ C-17 portal-paciente [x], C-20 demo-migracion-excel │ C-18 recuperacion-inactivos-cobranza [x]
+  11 │ C-16 ia-chatbot-whatsapp-agenda, C-19 reseñas-google-automaticas │ C-17 portal-paciente [x], C-20 demo-migracion-excel [x] │ C-18 recuperacion-inactivos-cobranza [x]
 ```
 
 ---
@@ -489,7 +489,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-20] `demo-migracion-excel`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (2026-11-09) — demo ficticia idempotente (seed), import CSV/Excel (xlsx) con preview/confirmación/revalidación, validaciones/errores tipados por fila, R9 turnos activos/bloqueos, RBAC admin `/api/utilidades/*`, UI mínima frontend; verificado backend 88/1109, frontend 3/6, lint sin errores nuevos
 - **Scope**: Demo instantánea + migración desde Excel (D-05)
   - Seed/demo data para demo instantánea
   - Importador CSV/Excel para migración básica (pacientes, profesionales, turnos)

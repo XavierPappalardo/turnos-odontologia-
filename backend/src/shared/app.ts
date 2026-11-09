@@ -27,6 +27,7 @@ import {
 } from '../catalogo/catalogo.routes.js';
 import { recuperacionCobranzaRouter } from '../notificaciones/recuperacion-cobranza/recuperacion-cobranza.routes.js';
 import { solicitudResenaRouter } from '../notificaciones/solicitud-resena/solicitud-resena.routes.js';
+import { demoMigracionRouter } from '../utilidades/demo-migracion-excel/routes.js';
 import { errorHandler } from './error-handler.js';
 import { createLogger, defaultSink } from './logger.js';
 
@@ -65,6 +66,7 @@ export function createApp(db: DatabaseSync, config: AppConfig): Express {
   app.use('/api', catalogoRouter(db, config));
   app.use('/api', recuperacionCobranzaRouter(db, config));
   app.use('/api', solicitudResenaRouter(db, config));
+  app.use('/api', demoMigracionRouter(db, config));
   app.use(errorHandler);
   return app;
 }
