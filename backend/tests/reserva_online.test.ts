@@ -461,3 +461,52 @@ describe('Dado hueco libre Cuando dos escrituras concurrentes públicas Entonces
     }
   });
 });
+
+describe('Catálogo público y reserva online (C-15)', () => {
+  it('Dado catálogo de prestaciones públicas con precios Cuando el paciente consulta y reserva online Entonces el turno queda vinculado a la prestación', async () => {
+    const db = openDatabase(':memory:');
+    seedBase(db);
+    const app = createApp(db, AUTH);
+    try {
+      const now = new Date().toISOString();
+      db.prepare(
+        `INSERT INTO prestacion (id, codigo, nombre, duracion_min, precio_base_centavos, activo, created_at, updated_at)
+         VALUES ('pres-reserva-1', 'PROFILAXIS', 'Profilaxis y Limpieza', 30, 1800000, 1, ?, ?)`,
+      ).run(now, now);
+
+      // 1. Paciente consulta catálogo público
+      const catalogoRes = await request(app).get('/api/public/prestaciones');
+      expect(catalogoRes.status).toBe(200);
+      const prestacion = catalogoRes.body.find(
+        (p: { id: string }) => p.id === 'pres-reserva-1',
+      );
+      expect(prestacion).toBeDefined();
+      expect(prestacion.precio_base_centavos).toBe(1800000);
+      expect(prestacion.precio_formateado).toBe('$ 18.000,00');
+
+      // 2. Reserva turno online con esa prestacion
+      const inicio = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+      const fin = new Date(
+        new Date(inicio).getTime() + prestacion.duracion_min * 60 * 1000,
+      ).toISOString();
+      const turnoRes = await request(app).post('/api/public/turnos').send({
+        profesional_id: PROF,
+        sillon_id: SILLA,
+        paciente_id: PAC,
+        prestacion_id: prestacion.id,
+        inicio,
+        fin,
+      });
+
+      expect(turnoRes.status).toBe(201);
+      expect(turnoRes.body.origen).toBe('online');
+
+      const turnoEnDb = db
+        .prepare('SELECT * FROM turno WHERE id = ?')
+        .get(turnoRes.body.id) as { prestacion_id: string };
+      expect(turnoEnDb.prestacion_id).toBe('pres-reserva-1');
+    } finally {
+      db.close();
+    }
+  });
+});

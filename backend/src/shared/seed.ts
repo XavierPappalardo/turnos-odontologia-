@@ -64,6 +64,7 @@ export function seedMinimo(db: DatabaseSync): void {
       codigo: 'PREST-FICTICIA-01',
       nombre: 'Consulta Ficticia',
       duracion_min: 30,
+      precio_base_centavos: 1500000,
       activo: 1,
       deleted_at: null,
     });

@@ -119,3 +119,19 @@ export function puedeVerReportesOperativos(rol: Rol | undefined): boolean {
 export function puedeVerReporteFacturacion(rol: Rol | undefined): boolean {
   return rol !== undefined && ROLES_REPORTES_FACTURACION.includes(rol);
 }
+
+/* ── Comisiones (C-13, design D6; R4: recepción NO configura ni gestiona) ── */
+
+/** Configurar % de comisiones (general y por tratamiento): solo administración. */
+export const ROLES_COM_CONFIG: readonly Rol[] = ['administracion'];
+
+/** Preview / generar / regenerar / confirmar / consultar todas las liquidaciones: solo administración. */
+export const ROLES_COM_GESTION: readonly Rol[] = ['administracion'];
+
+export function puedeConfigurarComisiones(rol: Rol | undefined): boolean {
+  return rol !== undefined && ROLES_COM_CONFIG.includes(rol);
+}
+
+export function puedeOperarComisiones(rol: Rol | undefined): boolean {
+  return rol !== undefined && ROLES_COM_GESTION.includes(rol);
+}

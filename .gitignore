@@ -17,3 +17,12 @@ bin-release/
 # should NOT be excluded as they contain compiler settings and other important
 # information for Eclipse / Flash Builder.
 
+# ── Exclusiones del repo raíz (correctivo post C-11/C-12; ancladas a la raíz) ──
+# `.env` nunca se versiona (plantilla local; credenciales reales solo en el
+# `.env` de cada máquina; backend/.env ya lo cubre backend/.gitignore).
+/.env
+/_baseline_vitest.out
+# Anclado a la raíz a propósito: backend/ y el futuro frontend/ SÍ versionan
+# sus propios tsconfig.json.
+/tsconfig.json
+

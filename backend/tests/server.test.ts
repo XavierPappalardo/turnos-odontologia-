@@ -130,3 +130,50 @@ describe('obras-sociales montadas en createApp (C-12, task 7.1)', () => {
     }
   });
 });
+
+/**
+ * Smoke del montaje de comisiones (C-13, task 6.1): routers accesibles bajo
+ * /api/comisiones/* con su auth/RBAC activo (401 sin token; 403 de recepción
+ * en configuración). Suite E2E completa en comisiones_routes.test.ts.
+ */
+describe('comisiones montadas en createApp (C-13, task 6.1)', () => {
+  it('Dado GET /api/comisiones/liquidaciones sin token Entonces 401 (router montado y autenticado)', async () => {
+    const db = openDatabase(':memory:');
+    try {
+      const res = await request(createApp(db, APP_CONFIG)).get(
+        '/api/comisiones/liquidaciones',
+      );
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'no_autenticado' });
+    } finally {
+      db.close();
+    }
+  });
+
+  it('Dado token válido de recepción Cuando PUT configuraciones Entonces 403 (R4: recepción NO configura comisiones)', async () => {
+    const db = openDatabase(':memory:');
+    try {
+      const token =
+        'Bearer ' +
+        signToken(
+          {
+            sub: 'user-com-smoke-rec',
+            tenantId: 'test',
+            roles: ['recepcion'],
+            email: 'com-smoke-rec@example.test',
+            type: 'access',
+            ttlSeconds: 900,
+          },
+          AUTH.jwtSecret,
+        );
+      const res = await request(createApp(db, APP_CONFIG))
+        .put('/api/comisiones/configuraciones/prof-ficticio-smoke')
+        .set('authorization', token)
+        .send({ pct_general: 40, tratamientos: [] });
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ error: 'forbidden' });
+    } finally {
+      db.close();
+    }
+  });
+});

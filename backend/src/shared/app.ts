@@ -15,8 +15,14 @@ import { presupuestosRouter } from '../clinica/presupuestos.routes.js';
 import { planesRouter } from '../obras-sociales/planes.routes.js';
 import { coberturasRouter } from '../obras-sociales/coberturas.routes.js';
 import { liquidacionesRouter } from '../obras-sociales/liquidaciones.routes.js';
+import { configuracionesRouter } from '../comisiones/configuraciones.routes.js';
+import { liquidacionesRouter as comisionesRouter } from '../comisiones/liquidaciones.routes.js';
 import { cajaRouter } from '../caja/caja.routes.js';
 import { reportesRouter } from '../reportes/reportes.routes.js';
+import {
+  catalogoPublicoRouter,
+  catalogoRouter,
+} from '../catalogo/catalogo.routes.js';
 import { errorHandler } from './error-handler.js';
 import { createLogger, defaultSink } from './logger.js';
 
@@ -38,6 +44,7 @@ export function createApp(db: DatabaseSync, config: AppConfig): Express {
   app.use('/api/public', reservaOnlineRouter(db, config));
   app.use('/api/public', turnoTokenRouter(db, config));
   app.use('/api/public', recordatorioRouter(db, config));
+  app.use('/api/public', catalogoPublicoRouter(db));
   app.use('/api', historiaClinicaRouter(db));
   app.use('/api', odontogramaRouter(db));
   app.use('/api', pacientesRouter(db));
@@ -45,8 +52,11 @@ export function createApp(db: DatabaseSync, config: AppConfig): Express {
   app.use('/api/obras-sociales', planesRouter(db, config));
   app.use('/api/obras-sociales', coberturasRouter(db, config));
   app.use('/api/obras-sociales', liquidacionesRouter(db, config));
+  app.use('/api/comisiones', configuracionesRouter(db, config));
+  app.use('/api/comisiones', comisionesRouter(db, config));
   app.use('/api', cajaRouter(db, config));
   app.use('/api', reportesRouter(db, config));
+  app.use('/api', catalogoRouter(db, config));
   app.use(errorHandler);
   return app;
 }

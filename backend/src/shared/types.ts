@@ -283,3 +283,147 @@ export const ESTADOS_LIBRES: readonly TurnoEstado[] = [
 export function esEstadoActivo(estado: string): boolean {
   return (ESTADOS_ACTIVOS as readonly string[]).includes(estado);
 }
+
+/** Identificadores de comisiones (C-13). */
+export type ComisionConfigId = Brand<string, 'ComisionConfigId'>;
+export type ComisionTratamientoId = Brand<string, 'ComisionTratamientoId'>;
+export type LiquidacionComisionId = Brand<string, 'LiquidacionComisionId'>;
+export type LiquidacionComisionItemId = Brand<string, 'LiquidacionComisionItemId'>;
+export type LiquidacionComisionAjusteId = Brand<string, 'LiquidacionComisionAjusteId'>;
+export type LiquidacionComisionEventoId = Brand<string, 'LiquidacionComisionEventoId'>;
+
+/**
+ * Estados de la liquidación de comisiones (C-13, design D5/D9).
+ * Máquina lineal: `borrador → confirmada` (terminal). Sin `pagada`/`anulada`
+ * (fuera del MVP: el pago efectivo al profesional no se registra).
+ */
+export type LiquidacionComisionEstado = 'borrador' | 'confirmada';
+
+export const LIQUIDACION_COMISION_ESTADOS: readonly LiquidacionComisionEstado[] =
+  ['borrador', 'confirmada'] as const;
+
+/** Estados terminales: una vez alcanzados no aceptan más transiciones. */
+export const LIQUIDACION_COMISION_ESTADOS_TERMINALES: readonly LiquidacionComisionEstado[] =
+  ['confirmada'] as const;
+
+/** Transiciones válidas: desde -> hacia[] (design D5: lineal). */
+export const LIQUIDACION_COMISION_TRANSICIONES: ReadonlyMap<
+  LiquidacionComisionEstado,
+  readonly LiquidacionComisionEstado[]
+> = new Map([
+  ['borrador', ['confirmada']],
+  ['confirmada', []],
+]);
+
+/** Regla aplicada a un ítem de liquidación de comisiones (design D2/RN-08). */
+export type ReglaComisionAplicada = 'general' | 'tratamiento';
+
+/** Eventos del historial append-only de liquidación de comisiones (design D9). */
+export type EventoComision = 'generada' | 'confirmada';
+
+/** Estado del ciclo de vida del ajuste compensatorio (design D12): `reservado → consumido`. */
+export type EstadoAjusteComision = 'reservado' | 'consumido';
+
+/** Tipo de ajuste compensatorio (design D12): anulación de cobro original o arrastre de saldo. */
+export type TipoAjusteComision = 'anulacion_cobro' | 'saldo_arrastre';
+
+/** Interfaces de dominio de comisiones (C-13).
+ * Todos los montos son enteros en centavos (ARS), nunca float (R2/R5/R6).
+ * Los porcentajes `pct_*` son enteros exactos 0..100 (R6).
+ * Los snapshots persistidos del borrador/confirmada son inmutables (D4).
+ */
+export interface ProfesionalComisionConfig {
+  id: ComisionConfigId;
+  profesional_id: ProfesionalId;
+  /** % general del profesional: entero 0..100 (R6, CHECK en DDL). */
+  pct_general: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ProfesionalComisionTratamiento {
+  id: ComisionTratamientoId;
+  profesional_id: ProfesionalId;
+  prestacion_id: PrestacionId;
+  /** % por (profesional, prestación): reemplaza al general, nunca se suman (RN-08). */
+  pct: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface LiquidacionComision {
+  id: LiquidacionComisionId;
+  profesional_id: ProfesionalId;
+  /** Límites del período (Q3 ratificada: fecha contable). */
+  desde: string;
+  hasta: string;
+  estado: LiquidacionComisionEstado;
+  /** Σ de comisiones de los ítems vigentes: entero ≥ 0. */
+  monto_items_centavos: number;
+  /** Σ de ajustes compensatorios reservados/consumidos del host: entero ≥ 0. */
+  monto_ajustes_centavos: number;
+  /** Neto = items − ajustes. Excepción documentada a R5: puede ser < 0 SOLO por ajustes (CHECK DDL). */
+  monto_total_centavos: number;
+  /**
+   * Saldo de compensación (D12): `0` en `borrador`; en `confirmada`
+   * `max(0, monto_ajustes − monto_items)` (CHECK CASE en DDL). Importe pasivo,
+   * sin pagos negativos automáticos: reduce comisiones futuras via arrastre.
+   */
+  saldo_compensacion_centavos: number;
+  /** D13: SHA-256 del cálculo al generar/regenerar (auditoría). */
+  fingerprint: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ItemLiquidacionComision {
+  id: LiquidacionComisionItemId;
+  liquidacion_id: LiquidacionComisionId;
+  pago_id: PagoId;
+  /** Snapshot de valor del turno comisionado (vía turno o presupuesto.turno_id): sin FK (D9). */
+  turno_id: TurnoId;
+  /** Snapshot D4 de la fecha contable del cobro (movimiento de caja; fallback pago.created_at), `YYYY-MM-DD`. */
+  fecha_contable: string;
+  /** Snapshot del cobro comisionado: entero ≥ 0. */
+  monto_cobro_centavos: number;
+  /** % vigente al calcular (Q5: comisión = trunc(monto × pct / 100)). */
+  pct_aplicado: number;
+  regla_aplicada: ReglaComisionAplicada;
+  /** Comisión truncada del ítem: entero ≥ 0. */
+  monto_comision_centavos: number;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+export interface LiquidacionComisionAjuste {
+  id: LiquidacionComisionAjusteId;
+  liquidacion_id: LiquidacionComisionId;
+  /** Ítem confirmado de origen (snapshot de la comisión original a compensar). */
+  item_origen_id: LiquidacionComisionItemId;
+  /** Pago cuyo cobro fue anulado (trazabilidad; mismo pago del ítem de origen). */
+  pago_id: PagoId;
+  tipo_ajuste: TipoAjusteComision;
+  /** Magnitud declarada del ajuste (comisión original o residual): entero > 0. */
+  monto_ajuste_centavos: number;
+  /** Absorción in-order (D12): `0 .. monto_ajuste_centavos`; la del límite puede quedar parcial. */
+  monto_compensado_centavos: number;
+  /** Ciclo reservado → consumido (CHECK: `compensado_en` requerido al consumir). */
+  estado_ajuste: EstadoAjusteComision;
+  /** Sello de absorción; `NULL` mientras `estado_ajuste = 'reservado'`. */
+  compensado_en: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface EventoLiquidacionComision {
+  id: LiquidacionComisionEventoId;
+  liquidacion_id: LiquidacionComisionId;
+  evento: EventoComision;
+  actor_usuario_id: UsuarioId;
+  ocurrido_en: string;
+  created_at: string;
+}
