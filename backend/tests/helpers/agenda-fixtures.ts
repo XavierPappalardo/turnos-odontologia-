@@ -55,6 +55,13 @@ export const APP_CONFIG: AppConfig = {
     rateMax: 1000,
     rateWindowSeconds: 60,
   },
+  recuperacionCobranza: {
+    habilitado: true,
+    inactividadDias: 180,
+    recuperacionVentanaHoras: 24 * 30,
+    cobranzaVentanaHoras: 24 * 7,
+    maxContactosPorEjecucion: 200,
+  },
 };
 
 export function bearer(roles: readonly Rol[]): string {

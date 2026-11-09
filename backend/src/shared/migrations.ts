@@ -766,6 +766,44 @@ CREATE INDEX IF NOT EXISTS idx_portal_paciente_token_paciente ON portal_paciente
  * Registro ordenado de migraciones (design D4). La migraci??n base 001 crea las
  * tablas n?cleo. El orden del array ES el orden de aplicaci??n.
  */
+
+
+export const MIGRATION_016_RECUPERACION_COBRANZA = `
+-- C-18: Recuperaci?n de inactivos y cobranza autom?tica (sin PHI/secretos).
+-- IDs opacos; monto_centavos es dato operativo de deuda (ARS), no PHI.
+CREATE TABLE IF NOT EXISTS recuperacion_ejecucion (
+  id TEXT PRIMARY KEY,
+  tipo TEXT NOT NULL CHECK (tipo IN ('recuperacion','cobranza')),
+  estado TEXT NOT NULL CHECK (estado IN ('iniciada','completada','fallida')),
+  parametros_json TEXT NOT NULL DEFAULT '{}',
+  resumen_json TEXT NOT NULL DEFAULT '{}',
+  actor_usuario_id TEXT,
+  iniciado_en TEXT NOT NULL,
+  finalizado_en TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_recuperacion_ejecucion_tipo_fecha ON recuperacion_ejecucion(tipo, iniciado_en);
+
+CREATE TABLE IF NOT EXISTS recuperacion_contacto (
+  id TEXT PRIMARY KEY,
+  ejecucion_id TEXT NOT NULL REFERENCES recuperacion_ejecucion(id),
+  tipo TEXT NOT NULL CHECK (tipo IN ('recuperacion','cobranza')),
+  paciente_id TEXT NOT NULL REFERENCES paciente(id),
+  estado TEXT NOT NULL CHECK (estado IN ('enviado_simulado','omitido','fallido')),
+  motivo_omision TEXT,
+  monto_centavos INTEGER CHECK (monto_centavos IS NULL OR monto_centavos >= 0),
+  dedupe_clave TEXT NOT NULL,
+  ventana_hasta TEXT,
+  detalle_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_recuperacion_contacto_paciente_tipo ON recuperacion_contacto(paciente_id, tipo, created_at);
+CREATE INDEX IF NOT EXISTS idx_recuperacion_contacto_dedupe ON recuperacion_contacto(tipo, paciente_id, dedupe_clave);
+CREATE INDEX IF NOT EXISTS idx_recuperacion_contacto_ejecucion ON recuperacion_contacto(ejecucion_id);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { id: '001', sql: MIGRATION_001_CORE },
   { id: '002', sql: MIGRATION_002_AUTH },
@@ -782,6 +820,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '013', sql: MIGRATION_013_PRECIOS_PUBLICOS },
   { id: '014', sql: MIGRATION_014_CHATBOT_CONVERSACION },
   { id: '015', sql: MIGRATION_015_PORTAL_PACIENTE },
+  { id: '016', sql: MIGRATION_016_RECUPERACION_COBRANZA },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

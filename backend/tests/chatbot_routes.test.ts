@@ -25,6 +25,13 @@ const AUTH: AppConfig = {
   mercadopago: { habilitado: false, ambiente: 'sandbox', token: null, webhookSecret: null },
   chatbot: { simuladoHabilitado: true, sessionTtlSeconds: 1800, maxIntentosInvalidos: 5, rateMax: 1000, rateWindowSeconds: 60 },
   portalPaciente: { tokenTtlSeconds: 604800, rateMax: 1000, rateWindowSeconds: 60 },
+  recuperacionCobranza: {
+    habilitado: true,
+    inactividadDias: 180,
+    recuperacionVentanaHoras: 720,
+    cobranzaVentanaHoras: 168,
+    maxContactosPorEjecucion: 200,
+  },
 };
 
 function seed(db: DatabaseSync): void {

@@ -59,6 +59,13 @@ const APP_CONFIG: AppConfig = {
         rateMax: 1000,
         rateWindowSeconds: 60,
       },
+  recuperacionCobranza: {
+    habilitado: true,
+    inactividadDias: 180,
+    recuperacionVentanaHoras: 720,
+    cobranzaVentanaHoras: 168,
+    maxContactosPorEjecucion: 200,
+  },
   };
 
 let db: DatabaseSync;

@@ -44,7 +44,7 @@ C-01 foundation-setup
                     │
                     ├── C-16 ia-chatbot-whatsapp-agenda  (Diferenciador)
                     ├── C-17 portal-paciente              (Diferenciador)
-                    ├── C-18 recuperacion-inactivos-cobranza (Diferenciador)
+                    ├── C-18 recuperacion-inactivos-cobranza [x] (Diferenciador)
                     ├── C-19 reseñas-google-automaticas   (Diferenciador)
                     └── C-20 demo-migracion-excel         (Diferenciador)
 ```
@@ -92,7 +92,7 @@ GATE 9: C-04, C-09, C-10, C-11, C-12, C-13 ✓
 GATE 10: C-15 ✓                    ← ÚLTIMO FORK (5 paralelos diferenciadores)
   → C-16 ia-chatbot-whatsapp-agenda [Agente A]
   → C-17 portal-paciente            [Agente B]
-  → C-18 recuperacion-inactivos-cobranza [Agente C]
+  → C-18 recuperacion-inactivos-cobranza [x] [Agente C]
   → C-19 reseñas-google-automaticas [Agente A]
   → C-20 demo-migracion-excel       [Agente B]
 ```
@@ -118,7 +118,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
   8  │ —                                 │ C-11 caja-cobros-multimedio-mercadopago │ —
   9  │ —                                 │ —                                │ C-13 comisiones-profesional
   10 │ C-14 reportes-ocupacion-facturacion-ausentismo │ — │ C-15 precios-publicos-ars
-  11 │ C-16 ia-chatbot-whatsapp-agenda, C-19 reseñas-google-automaticas │ C-17 portal-paciente [x], C-20 demo-migracion-excel │ C-18 recuperacion-inactivos-cobranza
+  11 │ C-16 ia-chatbot-whatsapp-agenda, C-19 reseñas-google-automaticas │ C-17 portal-paciente [x], C-20 demo-migracion-excel │ C-18 recuperacion-inactivos-cobranza [x]
 ```
 
 ---
@@ -457,7 +457,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-18] `recuperacion-inactivos-cobranza`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (`openspec/changes/archive/2026-11-09-c-18-recuperacion-inactivos-cobranza`)
 - **Scope**: Recuperación de pacientes inactivos y cobranza automática (D-03)
   - Segmentación de inactivos, campañas
   - Cobranza automática (recordatorios de deuda)

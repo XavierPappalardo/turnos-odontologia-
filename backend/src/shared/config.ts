@@ -60,6 +60,19 @@ export interface PortalPacienteConfig {
   readonly rateWindowSeconds: number;
 }
 
+/** Configuración de recuperación de inactivos y cobranza automática (C-18): sin secretos reales. */
+export interface RecuperacionCobranzaConfig {
+  readonly habilitado: boolean;
+  /** Días sin actividad asistencial relevante para considerar inactivo. */
+  readonly inactividadDias: number;
+  /** Ventana mínima entre contactos de recuperación (horas). */
+  readonly recuperacionVentanaHoras: number;
+  /** Ventana mínima entre recordatorios de cobranza (horas). */
+  readonly cobranzaVentanaHoras: number;
+  /** Máximo de objetivos/contactos por ejecución (seguridad operativa). */
+  readonly maxContactosPorEjecucion: number;
+}
+
 export interface AppConfig {
   readonly port: number;
   readonly databasePath: string;
@@ -76,6 +89,7 @@ export interface AppConfig {
   readonly mercadopago: MercadoPagoConfig;
   readonly chatbot: ChatbotConfig;
   readonly portalPaciente: PortalPacienteConfig;
+  readonly recuperacionCobranza: RecuperacionCobranzaConfig;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'production', 'test'];
@@ -107,6 +121,11 @@ const DEFAULT_CHATBOT_RATE_WINDOW_SECONDS = 60;
 const DEFAULT_PORTAL_PACIENTE_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 días
 const DEFAULT_PORTAL_PACIENTE_RATE_MAX = 60;
 const DEFAULT_PORTAL_PACIENTE_RATE_WINDOW_SECONDS = 60;
+// C-18 recuperación de inactivos y cobranza automática (sin credenciales reales)
+const DEFAULT_RECUPERACION_INACTIVIDAD_DIAS = 180;
+const DEFAULT_RECUPERACION_VENTANA_HORAS = 24 * 30;
+const DEFAULT_COBRANZA_VENTANA_HORAS = 24 * 7;
+const DEFAULT_RECUPERACION_MAX_CONTACTOS = 200;
 
 /** Error de configuración: nombra la variable faltante/inválida (fail-fast). */
 export class ConfigError extends Error {
@@ -314,6 +333,31 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         env,
         'PORTAL_PACIENTE_RATE_WINDOW_SECONDS',
         DEFAULT_PORTAL_PACIENTE_RATE_WINDOW_SECONDS,
+      ),
+    },
+    recuperacionCobranza: {
+      habilitado:
+        (env['RECUPERACION_COBRANZA_HABILITADO'] ?? 'true').trim().toLowerCase() !== 'false' &&
+        (env['RECUPERACION_COBRANZA_HABILITADO'] ?? 'true').trim() !== '0',
+      inactividadDias: positiveInt(
+        env,
+        'RECUPERACION_INACTIVIDAD_DIAS',
+        DEFAULT_RECUPERACION_INACTIVIDAD_DIAS,
+      ),
+      recuperacionVentanaHoras: positiveInt(
+        env,
+        'RECUPERACION_VENTANA_HORAS',
+        DEFAULT_RECUPERACION_VENTANA_HORAS,
+      ),
+      cobranzaVentanaHoras: positiveInt(
+        env,
+        'COBRANZA_VENTANA_HORAS',
+        DEFAULT_COBRANZA_VENTANA_HORAS,
+      ),
+      maxContactosPorEjecucion: positiveInt(
+        env,
+        'RECUPERACION_MAX_CONTACTOS',
+        DEFAULT_RECUPERACION_MAX_CONTACTOS,
       ),
     },
   };

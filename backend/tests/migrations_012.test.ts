@@ -160,7 +160,7 @@ describe('Migración 012 - comisiones (C-13)', () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(ids).toContain('011');
     expect(ids).toContain('012');
-    expect(ids[ids.length - 1]).toBe('015');
+    expect(ids[ids.length - 1]).toBe('016');
   });
 
   it('Dado BD nueva Cuando corre runMigrations Entonces crea las 6 tablas de C-13', () => {
