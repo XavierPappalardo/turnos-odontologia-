@@ -389,18 +389,16 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ---
 
 ### [C-14] `reportes-ocupacion-facturacion-ausentismo`
-- **Estado**: `[ ]` pendiente
-- **Scope**: Reportes de ocupación, facturación y ausentismo (F-11)
-  - Dashboards/admin: ocupación por profesional/sillón, facturación, ausentismo
-  - Métricas agregadas (diarias/semanales/mensuales)
-  - Exportación CSV (opcional)
-  - Tests: cálculo de métricas, agregaciones
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-08-c-14-reportes-ocupacion-facturacion-ausentismo/`)
+- **Scope**: Reportes de ocupación, facturación y ausentismo (F-11) — backend only, estrictamente read-only
+  - Endpoints JSON de métricas agregadas: ocupación por profesional/sillón (minutos absolutos, sin denominador), facturación percibida por `aplicado_en`, ausentismo sobre turnos resueltos
+  - Agregación por día/semana/mes en la zona horaria configurada
+  - Tests: cálculo de métricas, agregaciones, RBAC y validación de rango
 - **Dependencias**: C-04, C-09, C-10, C-11, C-12, C-13
-- **Governance**: MEDIO
+- **Governance**: BAJO (LOW)
 - **Leer antes**:
   - `knowledge-base/06-features.md` F-11
   - `knowledge-base/07-flujos.md` CU-8
-  - `knowledge-base/08-arquitectura.md` §Reportes
 
 ---
 

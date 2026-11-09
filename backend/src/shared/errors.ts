@@ -296,3 +296,38 @@ export class CajaError extends AppError {
     return body;
   }
 }
+
+/* ── Reportes read-only (C-14, design D12) ── */
+
+/** Códigos del módulo de reportes: validación de entrada o acceso denegado. */
+export type ReportesErrorCode = 'validacion' | 'forbidden';
+
+/**
+ * Error tipado de reportes (C-14, design D12). Sin PHI (R3): `detalle` sólo
+ * aparece en errores de `validacion` y describe el campo, nunca el valor
+ * recibido ni datos de pacientes.
+ */
+export class ReportesError extends AppError {
+  declare readonly status: 400 | 403;
+  declare readonly code: ReportesErrorCode;
+  readonly detalle?: string | undefined;
+
+  constructor(args: {
+    status: 400 | 403;
+    code: ReportesErrorCode;
+    message: string;
+    detalle?: string;
+  }) {
+    super({ status: args.status, code: args.code, message: args.message });
+    this.name = 'ReportesError';
+    this.detalle = args.detalle;
+  }
+
+  toBody(): Record<string, unknown> {
+    const body: Record<string, unknown> = { error: this.code };
+    if (this.code === 'validacion' && this.detalle !== undefined) {
+      body['detalle'] = this.detalle;
+    }
+    return body;
+  }
+}

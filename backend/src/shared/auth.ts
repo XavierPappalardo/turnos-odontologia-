@@ -96,3 +96,26 @@ export function puedeGestionarCaja(rol: Rol | undefined): boolean {
 export function puedeCerrarCaja(rol: Rol | undefined): boolean {
   return rol !== undefined && ROLES_CAJA_CIERRE.includes(rol);
 }
+
+/* ── Reportes read-only (C-14, design D10; R4: facturación global = administración) ── */
+
+/**
+ * Reportes operativos (ocupación y ausentismo): recepción y administración ven
+ * el global. `profesional` NO entra por lista de roles: entra por alcance, con
+ * el filtro forzado a su propio `usuario.profesional_id` (design D10).
+ */
+export const ROLES_REPORTES_OPERATIVOS: readonly Rol[] = [
+  'recepcion',
+  'administracion',
+];
+
+/** Facturación percibida: solo administración (mismo criterio que `ROLES_CAJA_CIERRE`). */
+export const ROLES_REPORTES_FACTURACION: readonly Rol[] = ['administracion'];
+
+export function puedeVerReportesOperativos(rol: Rol | undefined): boolean {
+  return rol !== undefined && ROLES_REPORTES_OPERATIVOS.includes(rol);
+}
+
+export function puedeVerReporteFacturacion(rol: Rol | undefined): boolean {
+  return rol !== undefined && ROLES_REPORTES_FACTURACION.includes(rol);
+}
