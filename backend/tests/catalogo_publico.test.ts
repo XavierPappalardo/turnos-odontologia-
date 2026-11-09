@@ -41,6 +41,13 @@ const APP_CONFIG: AppConfig = {
     token: null,
     webhookSecret: null,
   },
+  chatbot: {
+    simuladoHabilitado: true,
+    sessionTtlSeconds: 1800,
+    maxIntentosInvalidos: 5,
+    rateMax: 1000,
+    rateWindowSeconds: 60,
+  },
 };
 
 describe('GET /api/public/prestaciones — Catálogo público de precios en ARS', () => {

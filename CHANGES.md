@@ -1,4 +1,4 @@
-# CHANGES — Secuencia de Implementación
+﻿# CHANGES — Secuencia de Implementación
 
 > Índice canónico de todos los changes del proyecto **turnos-odontologia**.
 > Cada change es atómico: un agente puede implementarlo en una sesión (~4-6 horas).
@@ -422,7 +422,7 @@ Paso │ Agente A (Backend Core / Agenda) │ Agente B (Backend Aux / Clínica) 
 ## FASE 5 — Diferenciadores (Post-MVP temprano)
 
 ### [C-16] `ia-chatbot-whatsapp-agenda`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completo (archivado en `openspec/changes/archive/2026-11-08-c-16-ia-chatbot-whatsapp-agenda/`)
 - **Scope**: IA/chatbot de WhatsApp que agenda 24/7 (D-01)
   - Integración WhatsApp API (estructura sin credenciales reales)
   - Flujo conversacional para agendar/confirmar/reprogramar

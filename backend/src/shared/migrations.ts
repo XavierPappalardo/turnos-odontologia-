@@ -723,6 +723,24 @@ export const MIGRATION_013_PRECIOS_PUBLICOS = `
 ALTER TABLE prestacion ADD COLUMN precio_base_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_base_centavos >= 0);
 `;
 
+export const MIGRATION_014_CHATBOT_CONVERSACION = `
+-- C-16: Estado conversacional del chatbot WhatsApp simulado (sin PHI/secretos).
+-- slots_json almacena solo IDs opacos/referencias ficticias.
+CREATE TABLE IF NOT EXISTS chatbot_conversacion (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL UNIQUE,
+  intencion TEXT,
+  paso TEXT,
+  slots_json TEXT NOT NULL DEFAULT '{}',
+  intentos_invalidos INTEGER NOT NULL DEFAULT 0,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chatbot_conversacion_conversation_id ON chatbot_conversacion(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_chatbot_conversacion_expires_at ON chatbot_conversacion(expires_at);
+`;
+
 /**
  * Registro ordenado de migraciones (design D4). La migración base 001 crea las
  * tablas núcleo. El orden del array ES el orden de aplicación.
@@ -741,6 +759,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: '011', sql: MIGRATION_011_OBRAS_SOCIALES },
   { id: '012', sql: MIGRATION_012_COMISIONES },
   { id: '013', sql: MIGRATION_013_PRECIOS_PUBLICOS },
+  { id: '014', sql: MIGRATION_014_CHATBOT_CONVERSACION },
 ];
 
 /** Tabla de control de migraciones aplicadas (idempotencia). */

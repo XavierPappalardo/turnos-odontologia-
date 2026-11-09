@@ -40,6 +40,18 @@ export interface MercadoPagoConfig {
   readonly webhookSecret: string | null;
 }
 
+/** Configuración del chatbot WhatsApp simulado (C-16): sin credenciales reales. */
+export interface ChatbotConfig {
+  /** Modo simulado/estructural habilitado (sin proveedor real). */
+  readonly simuladoHabilitado: boolean;
+  /** TTL de la sesión conversacional en segundos. */
+  readonly sessionTtlSeconds: number;
+  /** Máximo de intentos inválidos por conversación antes de limitar. */
+  readonly maxIntentosInvalidos: number;
+  readonly rateMax: number;
+  readonly rateWindowSeconds: number;
+}
+
 export interface AppConfig {
   readonly port: number;
   readonly databasePath: string;
@@ -54,6 +66,7 @@ export interface AppConfig {
   readonly recordatorio: RecordatorioConfig;
   readonly caja: CajaConfig;
   readonly mercadopago: MercadoPagoConfig;
+  readonly chatbot: ChatbotConfig;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'production', 'test'];
@@ -76,6 +89,11 @@ const DEFAULT_RECORDATORIO_CANAL_PREDETERMINADO: 'whatsapp' | 'email' = 'whatsap
  */
 const DEFAULT_CAJA_ZONA_HORARIA = 'America/Buenos_Aires';
 const MP_ENV_SANDBOX = 'sandbox';
+// C-16 chatbot simulado (sin credenciales reales)
+const DEFAULT_CHATBOT_SESSION_TTL_SECONDS = 30 * 60; // 30 min
+const DEFAULT_CHATBOT_MAX_INTENTOS_INVALIDOS = 5;
+const DEFAULT_CHATBOT_RATE_MAX = 30;
+const DEFAULT_CHATBOT_RATE_WINDOW_SECONDS = 60;
 
 /** Error de configuración: nombra la variable faltante/inválida (fail-fast). */
 export class ConfigError extends Error {
@@ -251,5 +269,26 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       zonaHoraria: validarZonaHorariaCaja(env),
     },
     mercadopago: leerMercadoPagoConfig(env),
+    chatbot: {
+      simuladoHabilitado:
+        (env['CHATBOT_SIMULADO'] ?? 'true').trim().toLowerCase() !== 'false' &&
+        (env['CHATBOT_SIMULADO'] ?? 'true').trim() !== '0',
+      sessionTtlSeconds: positiveInt(
+        env,
+        'CHATBOT_SESSION_TTL_SECONDS',
+        DEFAULT_CHATBOT_SESSION_TTL_SECONDS,
+      ),
+      maxIntentosInvalidos: positiveInt(
+        env,
+        'CHATBOT_MAX_INTENTOS_INVALIDOS',
+        DEFAULT_CHATBOT_MAX_INTENTOS_INVALIDOS,
+      ),
+      rateMax: positiveInt(env, 'CHATBOT_RATE_MAX', DEFAULT_CHATBOT_RATE_MAX),
+      rateWindowSeconds: positiveInt(
+        env,
+        'CHATBOT_RATE_WINDOW_SECONDS',
+        DEFAULT_CHATBOT_RATE_WINDOW_SECONDS,
+      ),
+    },
   };
 }
